@@ -1,4 +1,4 @@
-import { Component, OnInit, ChangeDetectorRef, AfterViewInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef, AfterViewInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { SettingsComponent } from '../settings/settings';
@@ -36,13 +36,16 @@ interface TrendDay {
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.css',
 })
-export class Dashboard implements OnInit, AfterViewInit {
+export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
   // ========================================
   // PROPIEDADES DE COMPONENTE
   // ========================================
   showSettings = false;
   showCreateService = false;
   activeTab: string = 'actual';
+  
+  // Intervalo para actualización automática
+  private autoRefreshInterval: any = null;
   showSuccessNotification = false;
   successMessage = '';
   successNotificationTimeout: any = null;
@@ -189,10 +192,48 @@ export class Dashboard implements OnInit, AfterViewInit {
     this.loadFiltrosUnicos();
     this.generateCalendar();
     this.loadRecentIncidents();
+    
+    // Iniciar actualización automática cada 10 segundos
+    this.startAutoRefresh();
   }
 
   ngAfterViewInit() {
     this.subscribeToSettingsEvents();
+  }
+
+  ngOnDestroy() {
+    // Limpiar el intervalo al destruir el componente
+    this.stopAutoRefresh();
+  }
+
+  // ========================================
+  // AUTO-REFRESH
+  // ========================================
+  startAutoRefresh() {
+    // Actualizar Health Checks cada 10 segundos
+    this.autoRefreshInterval = setInterval(() => {
+      this.refreshHealthChecks();
+    }, 10000);
+  }
+
+  stopAutoRefresh() {
+    if (this.autoRefreshInterval) {
+      clearInterval(this.autoRefreshInterval);
+      this.autoRefreshInterval = null;
+    }
+  }
+
+  refreshHealthChecks() {
+    // Solo actualizar Health Checks sin recargar todo
+    this.apiService.getHealthChecks(this.filtroChecksLimite).subscribe({
+      next: (healthChecks) => {
+        this.healthChecks = healthChecks || [];
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        console.error('Error actualizando Health Checks:', err);
+      }
+    });
   }
 
   // ========================================
