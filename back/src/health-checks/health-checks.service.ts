@@ -137,9 +137,13 @@ export class HealthChecksService implements OnModuleInit {
     if (query.restaurante) filter.restaurante = query.restaurante;
 
     if (query.desde && query.hasta) {
+      // Asegurar que las fechas sean strings ISO válidos para comparación
+      const desde = query.desde.includes('T') ? query.desde : new Date(query.desde).toISOString();
+      const hasta = query.hasta.includes('T') ? query.hasta : new Date(query.hasta + 'T23:59:59.999Z').toISOString();
+      
       filter.fechaRevision = {
-        $gte: query.desde,
-        $lte: query.hasta,
+        $gte: desde,
+        $lte: hasta,
       };
     }
 

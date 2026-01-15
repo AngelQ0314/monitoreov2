@@ -867,18 +867,27 @@ export class Dashboard implements OnInit, AfterViewInit {
       list = list.filter(h => ((h.importancia || '').toLowerCase() === fImp));
     }
 
-    const from = this.filtroChecksDesde ? new Date(this.filtroChecksDesde) : null;
-    const to = this.filtroChecksHasta ? new Date(this.filtroChecksHasta) : null;
-
-    if (from || to) {
+    // Filtrar por rango de fechas
+    if (this.filtroChecksDesde || this.filtroChecksHasta) {
       list = list.filter(h => {
-        const d = new Date(h.fecha || h.fechaRevision || h.fechaCreacion || h.createdAt || h.fechaCreacion);
-        if (from && d < from) return false;
-        if (to) {
-          const endOfDay = new Date(to);
-          endOfDay.setHours(23,59,59,999);
-          if (d > endOfDay) return false;
+        const fechaRevision = h.fecha || h.fechaRevision || h.fechaCreacion || h.createdAt;
+        if (!fechaRevision) return false;
+        
+        // Convertir fechaRevision a Date para comparación
+        const fechaCheck = new Date(fechaRevision);
+        
+        if (this.filtroChecksDesde) {
+          // Convertir fecha local a inicio del día en hora local
+          const desde = new Date(this.filtroChecksDesde + 'T00:00:00');
+          if (fechaCheck < desde) return false;
         }
+        
+        if (this.filtroChecksHasta) {
+          // Convertir fecha local a fin del día en hora local
+          const hasta = new Date(this.filtroChecksHasta + 'T23:59:59.999');
+          if (fechaCheck > hasta) return false;
+        }
+        
         return true;
       });
     }
