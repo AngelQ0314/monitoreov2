@@ -20,6 +20,11 @@ export class ServicesController {
     const isHard = hard === 'true' || hard === '1';
     return this.servicesService.remove(id, isHard);
   }
+
+  @Delete('deleted/all')
+  removeAllDeleted() {
+    return this.servicesService.removeAllDeleted();
+  }
   
   @Patch(':id/resync')
   async resyncService(@Param('id') id: string, @Query('limit') limit?: string) {

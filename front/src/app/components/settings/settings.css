@@ -218,6 +218,31 @@
   gap: 8px;
 }
 
+.btn-danger {
+  background: #dc2626;
+  color: #ffffff;
+  border: 1px solid #b91c1c;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex: 1;
+  text-align: center;
+}
+
+.btn-danger:hover {
+  background: #b91c1c;
+  border-color: #991b1b;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
+}
+
+.btn-danger:active {
+  transform: translateY(0);
+}
+
 .btn-secondary {
   background: #f1f5f9;
   color: #0f172a;
@@ -351,6 +376,11 @@
   margin: 0;
 }
 
+.deleted-header-actions {
+  display: flex;
+  gap: 8px;
+}
+
 .btn-close {
   padding: 8px 16px;
   background: #f1f5f9;
@@ -365,6 +395,23 @@
 .btn-close:hover {
   background: #e2e8f0;
   border-color: #cbd5e1;
+}
+
+.btn-delete-all {
+  padding: 8px 16px;
+  background: #dc2626;
+  color: white;
+  border: 1px solid #dc2626;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-delete-all:hover {
+  background: #b91c1c;
+  border-color: #b91c1c;
 }
 
 .deleted-list {

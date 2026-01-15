@@ -35,6 +35,10 @@ export class ApiService {
     return this.http.delete(`${this.baseUrl}/services/${id}`);
   }
 
+  deleteAllDeletedServices(): Observable<any> {
+    return this.http.delete(`${this.baseUrl}/services/deleted/all`);
+  }
+
   // Hard delete
   deleteServiceHard(id: string): Observable<any> {
     return this.http.delete(`${this.baseUrl}/services/${id}`, { params: { hard: 'true' } });
@@ -78,6 +82,14 @@ export class ApiService {
     const params: any = {};
     if (hard) params.hard = 'true';
     return this.http.delete(`${this.baseUrl}/maintenance/${id}`, { params });
+  }
+
+  finishAllMaintenances(): Observable<any> {
+    return this.http.post(`${this.baseUrl}/maintenance/finish-all`, {});
+  }
+
+  deleteAllMaintenances(): Observable<any> {
+    return this.http.delete(`${this.baseUrl}/maintenance/all`);
   }
 
   // Health-checks

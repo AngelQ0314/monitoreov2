@@ -1,4 +1,4 @@
-import { Injectable, Inject, forwardRef, Logger } from '@nestjs/common';
+import { Injectable, Inject, forwardRef, Logger, BadRequestException, NotFoundException } from '@nestjs/common';
 import { HealthChecksService } from '../health-checks/health-checks.service';
 import { customAlphabet } from 'nanoid';
 import { InjectModel } from '@nestjs/mongoose';
@@ -132,6 +132,59 @@ export class ServicesService {
   }
 
   async create(dto: any) {
+    // Validaciones de campos obligatorios
+    const requiredFields = [
+      { field: 'nombre', label: 'Nombre' },
+      { field: 'tipo', label: 'Tipo' },
+      { field: 'ambiente', label: 'Ambiente' },
+      { field: 'importancia', label: 'Importancia' }
+    ];
+
+    for (const { field, label } of requiredFields) {
+      if (!dto[field] || (typeof dto[field] === 'string' && dto[field].trim() === '')) {
+        throw new BadRequestException(`${label} es un campo obligatorio`);
+      }
+    }
+
+    // Validar endpoint
+    if (!dto.endpoint || !dto.endpoint.url) {
+      throw new BadRequestException('Endpoint URL es un campo obligatorio');
+    }
+
+    // Validar que la URL sea válida
+    try {
+      const url = new URL(dto.endpoint.url);
+      // Validar que sea http o https
+      if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+        throw new BadRequestException('La URL debe usar protocolo HTTP o HTTPS');
+      }
+    } catch (err) {
+      if (err instanceof BadRequestException) {
+        throw err;
+      }
+      throw new BadRequestException('La URL proporcionada no es válida. Debe ser una URL completa (ej: https://ejemplo.com/api/health)');
+    }
+
+    // Validar clasificación
+    if (!dto.clasificacion || !dto.clasificacion.cadena) {
+      throw new BadRequestException('Clasificación - Cadena es un campo obligatorio');
+    }
+    if (!dto.clasificacion.restaurante) {
+      throw new BadRequestException('Clasificación - Restaurante es un campo obligatorio');
+    }
+
+    // Validar que no exista un servicio con el mismo nombre
+    if (dto.nombre) {
+      const existing = await this.serviceModel.findOne({ 
+        nombre: dto.nombre,
+        activo: { $ne: false } // Solo considerar servicios activos
+      }).exec();
+      
+      if (existing) {
+        throw new BadRequestException(`Ya existe un servicio con el nombre "${dto.nombre}"`);
+      }
+    }
+    
     // Rellenar valores por defecto para endpoint si no se proporcionan
     dto.endpoint = dto.endpoint || {};
     dto.endpoint.metodo = dto.endpoint.metodo || dto.endpoint.method || 'GET';
@@ -150,49 +203,56 @@ export class ServicesService {
       fechaActualizacion: now,
     });
 
-    // Ejecutar health check inmediato si el servicio fue creado
-    const runImmediate = process.env.HEALTH_CHECK_RUN_IMMEDIATE_ON_CREATE !== 'false';
-    if (runImmediate && this.healthChecksService) {
-      // Asegurar que trabajamos con un documento (no un array inesperado)
-      const createdDoc: any = Array.isArray(created) ? created[0] : created;
-      try {
-        // Pasar skipEscalation=true para no escalar importancia en el primer check
-        await this.healthChecksService.runCheckForService(createdDoc, true);
-      } catch (err) {
-        console.warn('No se pudo ejecutar health check inmediato:', err?.message || err);
-      }
-
-      // Forzar recálculo del estado y devolver el servicio actualizado
-      try {
-        const createdId = createdDoc?._id || (createdDoc && createdDoc.id) || undefined;
-        if (createdId) {
-          const updated = await this.updateEstadoFromChecks(createdId as string);
-          // Registrar scheduler para este servicio
-          try {
-            if (this.healthChecksService && this.healthChecksService.registerServiceScheduler) await this.healthChecksService.registerServiceScheduler(createdDoc);
-          } catch (err) {
-            console.warn('No se pudo registrar scheduler para servicio creado:', err?.message || err);
-          }
-          return updated || createdDoc;
-        }
-        return createdDoc;
-      } catch (err) {
-        console.warn('Error al recalcular estado tras check inmediato:', err?.message || err);
-        return createdDoc;
-      }
-    }
-    // Registrar scheduler aunque no se haya ejecutado el check inmediato
+    // Registrar scheduler para ejecutar el primer check con jitter
+    // No ejecutar check inmediato para evitar duplicados
+    const createdDoc: any = Array.isArray(created) ? created[0] : created;
     try {
-      if (this.healthChecksService && this.healthChecksService.registerServiceScheduler) await this.healthChecksService.registerServiceScheduler(created);
+      if (this.healthChecksService && this.healthChecksService.registerServiceScheduler) {
+        await this.healthChecksService.registerServiceScheduler(createdDoc);
+      }
     } catch (err) {
       console.warn('No se pudo registrar scheduler para servicio creado:', err?.message || err);
     }
-    return created;
+    
+    return createdDoc;
   }
 
   async update(id: string, dto: any) {
     // Obtener servicio actual para detectar cambios
     const currentService = await this.serviceModel.findById(id).exec();
+    
+    if (!currentService) {
+      throw new NotFoundException('Servicio no encontrado');
+    }
+    
+    // Validar que no exista otro servicio con el mismo nombre (si se está cambiando el nombre)
+    if (dto.nombre && dto.nombre !== currentService.nombre) {
+      const existing = await this.serviceModel.findOne({ 
+        nombre: dto.nombre,
+        activo: { $ne: false },
+        _id: { $ne: id } // Excluir el servicio actual
+      }).exec();
+      
+      if (existing) {
+        throw new BadRequestException(`Ya existe otro servicio con el nombre "${dto.nombre}"`);
+      }
+    }
+    
+    // Validar URL si se está cambiando
+    if (dto.endpoint && dto.endpoint.url && dto.endpoint.url !== currentService.endpoint?.url) {
+      try {
+        const url = new URL(dto.endpoint.url);
+        if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+          throw new BadRequestException('La URL debe usar protocolo HTTP o HTTPS');
+        }
+      } catch (err) {
+        if (err instanceof BadRequestException) {
+          throw err;
+        }
+        throw new BadRequestException('La URL proporcionada no es válida. Debe ser una URL completa (ej: https://ejemplo.com/api/health)');
+      }
+    }
+    
     const isBeingRestored = currentService && !currentService.activo && dto.activo === true;
     const isLeavingMaintenance = currentService && currentService.maintenanceMode && dto.maintenanceMode === false;
     const isEnteringMaintenance = currentService && !currentService.maintenanceMode && dto.maintenanceMode === true;
@@ -201,6 +261,7 @@ export class ServicesService {
     const dtoKeys = Object.keys(dto).filter(k => k !== 'fechaActualizacion');
     const isOnlyManualOverrideChange = dtoKeys.length === 1 && dtoKeys[0] === 'manualOverride';
     const isOnlyImportanciaChange = dtoKeys.length === 1 && dtoKeys[0] === 'importancia';
+    const isOnlyMaintenanceModeChange = dtoKeys.length === 1 && dtoKeys[0] === 'maintenanceMode';
 
     // Rellenar defaults en endpoint si existen cambios parciales
     if (dto.endpoint) {
@@ -221,37 +282,30 @@ export class ServicesService {
     dto.fechaActualizacion = new Date().toISOString();
     const updated = await this.serviceModel.findByIdAndUpdate(id, dto, { new: true });
     
-    // No ejecutar check inmediato si:
-    // - Se está restaurando el servicio
-    // - Se está saliendo/entrando de mantenimiento
-    // - Solo se está cambiando manualOverride (al resolver/eliminar incidente)
-    const shouldSkipImmediateCheck = isBeingRestored || isLeavingMaintenance || isEnteringMaintenance || isOnlyManualOverrideChange;
-    
-    if (!shouldSkipImmediateCheck) {
-      try {
-        if (updated && this.healthChecksService) await this.healthChecksService.runCheckForService(updated);
-      } catch (err) {
-        console.warn('No se pudo ejecutar health check tras update:', err?.message || err);
-      }
-    } else {
-      if (isBeingRestored) {
-        this.logger.log(`Skipping immediate check for ${id} because service is being restored (scheduler will handle it)`);
-      }
-      if (isLeavingMaintenance) {
-        this.logger.log(`Skipping immediate check for ${id} because service is leaving maintenance (scheduler will handle it)`);
-      }
-      if (isEnteringMaintenance) {
-        this.logger.log(`Skipping immediate check for ${id} because service is entering maintenance (scheduler will be unregistered)`);
-      }
-      if (isOnlyManualOverrideChange) {
-        this.logger.log(`Skipping immediate check for ${id} because only manualOverride is changing (incident resolved/deleted)`);
-      }
+    // No ejecutar check inmediato en ningún caso - el scheduler se encargará
+    // Solo loggear la razón si aplica alguna condición especial
+    if (isBeingRestored) {
+      this.logger.log(`Service ${id} is being restored - scheduler will handle checks`);
+    }
+    if (isLeavingMaintenance) {
+      this.logger.log(`Service ${id} is leaving maintenance - scheduler will be re-registered`);
+    }
+    if (isEnteringMaintenance) {
+      this.logger.log(`Service ${id} is entering maintenance - scheduler will be unregistered`);
+    }
+    if (isOnlyManualOverrideChange) {
+      this.logger.log(`Service ${id} manualOverride changed - no immediate check needed`);
+    }
+    if (isOnlyMaintenanceModeChange && !isLeavingMaintenance) {
+      this.logger.log(`Service ${id} maintenanceMode changed - scheduler will handle checks`);
     }
     
     // Re-registrar scheduler solo si hay cambios que lo requieran
     // - Sí re-registrar si cambió importancia (afecta intervalos del scheduler)
+    // - Sí re-registrar si está saliendo de mantenimiento (necesita reactivar scheduler)
     // - No re-registrar si solo cambió manualOverride (no afecta intervalos)
-    const shouldReregisterScheduler = !isOnlyManualOverrideChange;
+    // - No re-registrar si solo cambió maintenanceMode sin salir de mantenimiento
+    const shouldReregisterScheduler = !isOnlyManualOverrideChange && !(isOnlyMaintenanceModeChange && !isLeavingMaintenance);
     
     if (shouldReregisterScheduler) {
       try {
@@ -304,6 +358,31 @@ export class ServicesService {
       console.warn('No se pudieron eliminar health checks asociados tras hard remove:', err?.message || err);
     }
     return removed;
+  }
+
+  async removeAllDeleted() {
+    // Hard delete: eliminar permanentemente todos los servicios que están marcados como inactivos
+    const deletedServices = await this.serviceModel.find({ activo: false }).exec();
+    
+    // Desregistrar schedulers y eliminar health checks para cada servicio
+    for (const service of deletedServices) {
+      try {
+        if (this.healthChecksService && this.healthChecksService.unregisterServiceScheduler) {
+          await this.healthChecksService.unregisterServiceScheduler(service._id);
+        }
+        if (this.healthChecksService && this.healthChecksService.deleteByService) {
+          await this.healthChecksService.deleteByService(service._id);
+        }
+      } catch (err) {
+        console.warn(`Error limpiando recursos para ${service._id}:`, err?.message || err);
+      }
+    }
+
+    // Eliminar todos los documentos
+    const result = await this.serviceModel.deleteMany({ activo: false });
+    
+    this.logger.log(`Permanently deleted ${result.deletedCount} inactive services`);
+    return { deleted: result.deletedCount, message: `${result.deletedCount} servicios eliminados permanentemente` };
   }
 
   // Devuelve los health checks recientes para diagnóstico (usa HealthChecksService)

@@ -49,6 +49,18 @@ async findWithFilters(query: any) {
     // Validaciones mínimas: serviceId existe
     if (!dto || !dto.serviceId) throw new BadRequestException('serviceId is required');
 
+    // Validar que no exista un mantenimiento con el mismo título
+    if (dto.titulo) {
+      const existing = await this.maintenanceModel.findOne({ 
+        titulo: dto.titulo,
+        activo: { $ne: false } // Solo considerar mantenimientos activos
+      }).exec();
+      
+      if (existing) {
+        throw new BadRequestException(`Ya existe un mantenimiento con el título "${dto.titulo}"`);
+      }
+    }
+
     // Comprobar que el servicio existe
     let svc: any = null;
     try {
@@ -147,6 +159,13 @@ async findWithFilters(query: any) {
     return updated;
   }
 
+  async finish(id: string) {
+    return this.update(id, { 
+      estado: 'Finalizado', 
+      fechaFin: new Date().toISOString() 
+    });
+  }
+
   async remove(id: string, hard = false) {
     const existing = await this.maintenanceModel.findById(id).exec();
     if (!existing) throw new NotFoundException('Mantenimiento no encontrado');
@@ -157,15 +176,11 @@ async findWithFilters(query: any) {
       await existing.save();
       try {
         if (existing.serviceId && this.servicesService) {
+          // Solo actualizar maintenanceMode, el scheduler existente continuará normalmente
           await this.servicesService.update(existing.serviceId, { maintenanceMode: false });
-          const svc: any = await this.servicesService.findAll({ id: existing.serviceId });
-          const serviceDoc = Array.isArray(svc) ? svc[0] : svc;
-          if (serviceDoc && this.healthChecksService && this.healthChecksService.registerServiceScheduler) {
-            await this.healthChecksService.registerServiceScheduler(serviceDoc);
-          }
         }
       } catch (err) {
-        console.warn('Error reactivating scheduler after soft-delete of maintenance:', err?.message || err);
+        console.warn('Error updating service after soft-delete of maintenance:', err?.message || err);
       }
       return existing;
     }
@@ -175,19 +190,60 @@ async findWithFilters(query: any) {
       const removed = await this.maintenanceModel.findByIdAndDelete(id).exec();
       if (removed && removed.serviceId && this.servicesService) {
         try {
+          // Solo actualizar maintenanceMode, el scheduler existente continuará normalmente
           await this.servicesService.update(removed.serviceId, { maintenanceMode: false });
-          const svc: any = await this.servicesService.findAll({ id: removed.serviceId });
-          const serviceDoc = Array.isArray(svc) ? svc[0] : svc;
-          if (serviceDoc && this.healthChecksService && this.healthChecksService.registerServiceScheduler) {
-            await this.healthChecksService.registerServiceScheduler(serviceDoc);
-          }
         } catch (err) {
-          console.warn('Error reactivating scheduler after hard-delete of maintenance:', err?.message || err);
+          console.warn('Error updating service after hard-delete of maintenance:', err?.message || err);
         }
       }
       return removed;
     } catch (err) {
       throw err;
     }
+  }
+
+  async finishAll() {
+    // Finalizar todos los mantenimientos activos que no estén ya finalizados
+    const maintenances = await this.maintenanceModel.find({ 
+      activo: { $ne: false },
+      estado: { $ne: 'Finalizado' }
+    }).exec();
+
+    const results: any[] = [];
+    for (const maintenance of maintenances) {
+      try {
+        const finished = await this.finish(maintenance._id.toString());
+        results.push(finished);
+      } catch (err) {
+        console.warn(`Error finalizando mantenimiento ${maintenance._id}:`, err?.message || err);
+      }
+    }
+
+    return { 
+      finalizados: results.length,
+      total: maintenances.length 
+    };
+  }
+
+  async removeAll() {
+    // Eliminar (soft-delete) todos los mantenimientos activos
+    const maintenances = await this.maintenanceModel.find({ 
+      activo: { $ne: false }
+    }).exec();
+
+    const results: any[] = [];
+    for (const maintenance of maintenances) {
+      try {
+        const removed = await this.remove(maintenance._id.toString(), false);
+        results.push(removed);
+      } catch (err) {
+        console.warn(`Error eliminando mantenimiento ${maintenance._id}:`, err?.message || err);
+      }
+    }
+
+    return { 
+      eliminados: results.length,
+      total: maintenances.length 
+    };
   }
 }

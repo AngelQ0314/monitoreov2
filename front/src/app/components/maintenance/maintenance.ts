@@ -282,6 +282,58 @@ export class MaintenanceComponent implements OnInit, OnDestroy {
     }
   }
 
+  finishAll() {
+    const activeMaintenances = this.maintenances.filter((m: any) => m.estado !== 'Finalizado');
+    
+    if (activeMaintenances.length === 0) {
+      alert('No hay mantenimientos activos para finalizar');
+      return;
+    }
+
+    if (!confirm(`¿Finalizar todos los mantenimientos activos? (${activeMaintenances.length} mantenimiento${activeMaintenances.length === 1 ? '' : 's'})`)) {
+      return;
+    }
+
+    this.api.finishAllMaintenances().subscribe({
+      next: (result: any) => {
+        alert(`✓ Se finalizaron ${result.finalizados} de ${result.total} mantenimientos`);
+        this.load();
+        this.onSaved.emit();
+      },
+      error: (err) => {
+        console.error('Error finalizando todos los mantenimientos', err);
+        alert('❌ Error al finalizar todos los mantenimientos. Intenta de nuevo.');
+      }
+    });
+  }
+
+  removeAll() {
+    if (this.maintenances.length === 0) {
+      alert('No hay mantenimientos para eliminar');
+      return;
+    }
+
+    if (!confirm(`¿Eliminar TODOS los mantenimientos? (${this.maintenances.length} mantenimiento${this.maintenances.length === 1 ? '' : 's'})`)) {
+      return;
+    }
+
+    if (!confirm('⚠️ ADVERTENCIA: Esta acción eliminará todos los mantenimientos. ¿Estás seguro?')) {
+      return;
+    }
+
+    this.api.deleteAllMaintenances().subscribe({
+      next: (result: any) => {
+        alert(`✓ Se eliminaron ${result.eliminados} de ${result.total} mantenimientos`);
+        this.maintenances = [];
+        this.onSaved.emit();
+      },
+      error: (err) => {
+        console.error('Error eliminando todos los mantenimientos', err);
+        alert('❌ Error al eliminar todos los mantenimientos. Intenta de nuevo.');
+      }
+    });
+  }
+
   trackByServiceId(index: number, service: any): any {
     return service._id;
   }

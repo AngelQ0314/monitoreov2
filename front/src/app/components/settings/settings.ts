@@ -124,6 +124,33 @@ export class SettingsComponent implements OnInit {
     });
   }
 
+  deleteAllServices() {
+    const confirmMessage = '⚠️ ¿Estás seguro de eliminar PERMANENTEMENTE todos los servicios de la papelera?\n\nEsta acción NO se puede deshacer. Todos los servicios eliminados serán borrados definitivamente.\n\n¿Deseas continuar?';
+    
+    if (!confirm(confirmMessage)) return;
+    
+    // Segunda confirmación
+    if (!confirm('¿Realmente deseas eliminar PERMANENTEMENTE todos estos servicios? Esta es tu última oportunidad para cancelar.')) return;
+    
+    this.deleting = true;
+    this.api.deleteAllDeletedServices().subscribe({
+      next: (result: any) => {
+        this.deleting = false;
+        alert(`✅ ${result.deleted || 0} servicios han sido eliminados permanentemente`);
+        this.loadDeletedServices();
+      },
+      error: (err) => {
+        this.deleting = false;
+        console.error('Error deleting all deleted services:', err);
+        alert('❌ Error al eliminar los servicios. Intenta de nuevo.');
+      }
+    });
+  }
+
+  deleteAllDeletedServices() {
+    this.deleteAllServices();
+  }
+
   openDeletedServices() {
     try { this.onOpenDeleted.emit(); } catch(e) {}
   }

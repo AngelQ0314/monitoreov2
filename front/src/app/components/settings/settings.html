@@ -76,7 +76,12 @@
   <div *ngIf="showDeletedServices" class="deleted-services-content">
     <div class="deleted-header">
       <h3 class="settings-title">🗑️ Servicios Eliminados</h3>
-      <button class="btn-close" (click)="toggleDeletedServices()">✕ Volver a Ajustes</button>
+      <div class="deleted-header-actions">
+        <button class="btn-danger" (click)="deleteAllDeletedServices()" *ngIf="deletedServices && deletedServices.length > 0" [disabled]="deleting">
+          {{ deleting ? '⏳ Eliminando...' : '🗑️ Eliminar todos permanentemente' }}
+        </button>
+        <button class="btn-close" (click)="toggleDeletedServices()">✕ Volver a Ajustes</button>
+      </div>
     </div>
 
     <div class="deleted-list">

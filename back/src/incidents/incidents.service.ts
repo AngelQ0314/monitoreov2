@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, Inject, forwardRef } from '@nestjs/common';
+import { Injectable, NotFoundException, Inject, forwardRef, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { IncidentEntity } from './schemas/incident.schema';
@@ -17,6 +17,18 @@ export class IncidentsService {
   ) {}
 
   async create(dto: CreateIncidentDto) {
+    // Validar que no exista un incidente con el mismo título (solo abiertos)
+    if (dto.titulo) {
+      const existing = await this.incidentModel.findOne({ 
+        titulo: dto.titulo,
+        estado: { $ne: 'Resuelto' } // Solo considerar incidentes no resueltos
+      }).exec();
+      
+      if (existing) {
+        throw new BadRequestException(`Ya existe un incidente abierto con el título "${dto.titulo}"`);
+      }
+    }
+
     const created = await this.incidentModel.create({
       ...dto,
       actualizaciones: [],

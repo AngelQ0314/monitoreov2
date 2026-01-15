@@ -381,19 +381,19 @@ export class Dashboard implements OnInit, AfterViewInit {
       error: (err) => {
         this.creating = false;
         console.error('Error creando servicio', err);
-        alert('❌ Error al crear el servicio. Intenta de nuevo.');
+        
+        // Extraer mensaje de error específico del backend
+        let errorMessage = '❌ Error al crear el servicio';
+        if (err.error && err.error.message) {
+          errorMessage = `❌ ${err.error.message}`;
+        } else if (err.message) {
+          errorMessage = `❌ ${err.message}`;
+        }
+        
+        alert(errorMessage);
         this.cdr.detectChanges();
       }
     });
-    
-    // Timeout de seguridad: si no responde en 15 segundos, cancelar
-    setTimeout(() => {
-      if (this.creating) {
-        this.creating = false;
-        alert('⚠️ La solicitud tardó demasiado. Por favor intenta de nuevo.');
-        this.cdr.detectChanges();
-      }
-    }, 15000);
   }
 
   startEdit(service: any) {
@@ -567,7 +567,16 @@ export class Dashboard implements OnInit, AfterViewInit {
       },
       error: (err) => {
         console.error('Error creando incidente', err);
-        alert('❌ Error al crear el incidente. Intenta de nuevo.');
+        
+        // Extraer mensaje de error específico del backend
+        let errorMessage = '❌ Error al crear el incidente';
+        if (err.error && err.error.message) {
+          errorMessage = `❌ ${err.error.message}`;
+        } else if (err.message) {
+          errorMessage = `❌ ${err.message}`;
+        }
+        
+        alert(errorMessage);
       }
     });
   }

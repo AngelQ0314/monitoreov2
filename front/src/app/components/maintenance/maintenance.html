@@ -1,6 +1,14 @@
 <div class="maintenance-panel">
   <div class="maintenance-header">
     <h3>Mantenimientos programados</h3>
+    <div class="maintenance-header-actions">
+      <button class="btn-secondary" (click)="finishAll()" *ngIf="maintenances.length > 0">
+        ✓ Finalizar todos
+      </button>
+      <button class="btn-danger" (click)="removeAll()" *ngIf="maintenances.length > 0">
+        ✕ Eliminar todos
+      </button>
+    </div>
   </div>
 
   <!-- Modal de alarma de finalización -->

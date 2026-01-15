@@ -23,12 +23,22 @@ findAll(@Query() query: any) {
     return this.service.create(dto);
   }
 
+  @Post('finish-all')
+  finishAll() {
+    return this.service.finishAll();
+  }
+
   @Patch(':id')
   update(
     @Param('id') id: string,
     @Body() dto: UpdateMaintenanceDto,
   ) {
     return this.service.update(id, dto);
+  }
+
+  @Delete('all')
+  removeAll() {
+    return this.service.removeAll();
   }
 
   @Delete(':id')
