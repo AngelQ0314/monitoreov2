@@ -1,0 +1,32 @@
+<div class="deleted-services">
+  <h2>Servicios eliminados</h2>
+
+  <div *ngIf="loading">Cargando...</div>
+  <div *ngIf="!loading && !deletedServices.length" class="no-deleted-services">No hay servicios eliminados 🎉</div>
+
+  <div *ngFor="let s of deletedServices" class="deleted-card" [class.processing]="processingIds.has(s._id)">
+    <div class="deleted-card-row">
+      <div>
+        <strong>{{ s.nombre }}</strong>
+        <div style="font-size:12px;color:#666">{{ s.clasificacion?.cadena }} · {{ s.clasificacion?.restaurante }}</div>
+      </div>
+      <div class="action-buttons">
+        <button 
+          class="btn-secondary" 
+          (click)="restore(s._id)"
+          [disabled]="processingIds.has(s._id)"
+        >
+          {{ processingIds.has(s._id) ? '⏳ Restaurando...' : '✓ Restaurar' }}
+        </button>
+        <button 
+          class="btn-danger" 
+          (click)="hardDelete(s._id)"
+          [disabled]="processingIds.has(s._id)"
+        >
+          {{ processingIds.has(s._id) ? '⏳ Eliminando...' : '🗑️ Eliminar' }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+

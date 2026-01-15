@@ -1,0 +1,161 @@
+.deleted-card {
+  border: 1px solid #eee;
+  padding: 12px;
+  border-radius: 8px;
+  margin: 10px 0;
+  background: #ffffff;
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+}
+
+.deleted-card-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.deleted-card.processing {
+  opacity: 0.6;
+  background: #f9fafb;
+  border-color: #d1d5db;
+  animation: fadeOut 0.4s ease;
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.6;
+  }
+}
+
+.btn-danger {
+  background: #ef4444;
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 6px;
+  margin-left: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: #dc2626;
+  box-shadow: 0 2px 4px rgba(239, 68, 68, 0.3);
+}
+
+.btn-danger:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: #10b981;
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: #059669;
+  box-shadow: 0 2px 4px rgba(16, 185, 129, 0.3);
+}
+
+.btn-secondary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.no-deleted-services {
+  text-align: center;
+  padding: 30px;
+  color: #6b7280;
+  font-size: 16px;
+}
+
+/* ================================
+   RESPONSIVE - TABLET (768px)
+================================ */
+
+@media (max-width: 768px) {
+  .deleted-card {
+    padding: 10px;
+    margin: 8px 0;
+  }
+
+  .deleted-card-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .action-buttons {
+    width: 100%;
+    gap: 6px;
+  }
+
+  .btn-danger,
+  .btn-secondary {
+    flex: 1;
+    padding: 8px 10px;
+    font-size: 12px;
+    margin-left: 0;
+  }
+
+  .no-deleted-services {
+    padding: 20px;
+    font-size: 14px;
+  }
+}
+
+/* ================================
+   RESPONSIVE - MOBILE (480px)
+================================ */
+
+@media (max-width: 480px) {
+  .deleted-card {
+    padding: 10px;
+    margin: 8px 0;
+    border-radius: 6px;
+  }
+
+  .deleted-card-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .action-buttons {
+    width: 100%;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .btn-danger,
+  .btn-secondary {
+    width: 100%;
+    padding: 10px;
+    font-size: 12px;
+    margin-left: 0;
+    border-radius: 6px;
+  }
+
+  .no-deleted-services {
+    padding: 16px;
+    font-size: 13px;
+  }
+}

@@ -1,0 +1,128 @@
+@baseUrl = http://localhost:3000
+
+###SERVICIOS
+
+### Obtener todos los servicios
+GET {{baseUrl}}/services
+
+
+### Obtener servicios por estado
+GET {{baseUrl}}/services?estado=Operando%20normalmente
+
+
+### Servicios impactados
+GET {{baseUrl}}/services?estado=Impactado
+
+
+### Servicios degradados
+GET {{baseUrl}}/services?estado=Degradado
+
+
+### Servicios interrumpidos
+GET {{baseUrl}}/services?estado=Interrumpido
+
+
+### Filtrar por cadena
+GET {{baseUrl}}/services?cadena=Pizza%20Hut
+
+
+### Filtrar por restaurante
+GET {{baseUrl}}/services?restaurante=KFC%20Mall%20del%20Sol
+
+
+### Cadena + Estado
+GET {{baseUrl}}/services?cadena=KFC&estado=Operando%20normalmente
+
+
+### Solo servicios activos
+GET {{baseUrl}}/services?activo=true
+
+
+### Filtrar por importancia
+GET {{baseUrl}}/services?importancia=alta
+
+### Crear servicios de prueba (4 ejemplos: Operando / Degradado / Impactado / Interrumpido)
+
+### 1) Operando normalmente
+POST {{baseUrl}}/services
+Content-Type: application/json
+
+{
+	"nombre": "Sim - Operando",
+	"descripcion": "Prueba - responde 200 rápido",
+	"tipo": "backend",
+	"ambiente": "produccion",
+	"clasificacion": { "cadena": "KFC", "restaurante": "GUSS Mall del Sol" },
+	"endpoint": { "url": "https://postman-echo.com/get" },
+	"activo": true,
+	"importancia": "media"
+}
+
+### 2) Degradado (latencia alta)
+POST {{baseUrl}}/services
+Content-Type: application/json
+
+{
+	"nombre": "Sim - Degradados",
+	"descripcion": "Prueba - delay 5s",
+	"tipo": "backend",
+	"ambiente": "produccion",
+	"clasificacion": { "cadena": "KFC", "restaurante": "GUSS Mall del Sol" },
+	"endpoint": { "url": "https://postman-echo.com/delay/5" },
+	"activo": true,
+	"importancia": "media"
+}
+
+### 3) Impactado (código 403)
+POST {{baseUrl}}/services
+Content-Type: application/json
+
+{
+	"nombre": "Sim - Impactado",
+	"descripcion": "Prueba - responde 403",
+	"tipo": "backend",
+	"ambiente": "produccion",
+	"clasificacion": { "cadena": "KFC", "restaurante": "GUSS Mall del Sol" },
+	"endpoint": { "url": "https://postman-echo.com/status/403" },
+	"activo": true,
+	"importancia": "alta"
+}
+
+### 4) Interrumpido (código 503)
+POST {{baseUrl}}/services
+Content-Type: application/json
+
+{
+	"nombre": "Sim - Interrumpido",
+	"descripcion": "Prueba - responde 503",
+	"tipo": "backend",
+	"ambiente": "produccion",
+	"clasificacion": { "cadena": "KFC", "restaurante": "GUSS Mall del Sol" },
+	"endpoint": { "url": "https://postman-echo.com/status/503" },
+	"activo": true,
+	"importancia": "alta"
+}
+
+### Actualizar un servicio
+PATCH {{baseUrl}}/services/srv-nvmid1h4
+Content-Type: application/json
+
+{
+	"nombre": "API de Prueba Actualizada",
+	"importancia": "media"
+}
+
+### Eliminar un servicio
+DELETE {{baseUrl}}/services/srv-6726klhg
+
+
+### Filtro por rango de fechas (días completos)
+GET {{baseUrl}}/services/filtrar-fecha?campoFecha=fechaCreacion&desde=2024-10-10&hasta=2025-12-23
+
+
+### Buscar por ID
+GET {{baseUrl}}/services?id=srv-001
+
+
+### Resumen de estados
+GET {{baseUrl}}/services/resumen

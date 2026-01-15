@@ -1,0 +1,16 @@
+@baseUrl = http://localhost:3000
+
+### Obtener todos
+GET {{baseUrl}}/health-checks
+
+### Por servicio
+GET {{baseUrl}}/health-checks/service/srv-001
+
+### Por cadena
+GET {{baseUrl}}/health-checks?cadena=KFC
+
+### Por rango de fechas
+GET {{baseUrl}}/health-checks?desde=2025-12-20&hasta=2025-12-25
+
+### Últimos 10
+GET {{baseUrl}}/health-checks?limit=10

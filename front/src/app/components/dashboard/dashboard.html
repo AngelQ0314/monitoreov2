@@ -1,0 +1,764 @@
+<div class="dashboard">
+
+  <!-- NOTIFICACIÓN DE ÉXITO -->
+  <div *ngIf="showSuccessNotification" class="success-notification">
+    {{ successMessage }}
+  </div>
+
+  <!-- HEADER -->
+  <header class="dashboard-header">
+    <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQQxetRwKHF0eyrLM44loQHpENyIZhhN4-vRA&s" alt="KFC" class="brand-logo">
+    <div class="header-left">
+      <h1 class="dashboard-title">Estado de los servicios</h1>
+      <div class="title-divider"></div>
+      <p class="dashboard-subtitle">
+        
+      </p>
+    </div>
+  </header>
+
+  <section *ngIf="showSettings" class="settings-modal-overlay" (click)="toggleSettings()">
+    <div class="settings-modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>⚙️ Ajustes del Sistema</h2>
+        <button class="modal-close" (click)="toggleSettings()">✕</button>
+      </div>
+      <div class="modal-content">
+        <app-settings></app-settings>
+      </div>
+    </div>
+  </section>
+
+  <!-- STATS -->
+  <section class="stats-grid">
+    <div class="stat-card stat-health">
+      <div class="stat-header">
+        <span class="stat-label">Salud General</span>
+        <span class="stat-icon"><svg xmlns="http://www.w3.org/2000/svg" height="28px" viewBox="0 -960 960 960" width="28px" fill="#5084C1"><path d="M362-180q-17 0-30.67-9.67-13.66-9.66-19.33-24.66l-95.33-232.34H45.33v-66.66h218l98.67 242 186-473q5.67-15 19.33-24.67 13.67-9.67 30.67-9.67t30.67 9.67q13.66 9.67 19.33 24.67l95.33 231h171.34v66.66h-218L598-687.33l-186 473q-5.67 15-19.33 24.66Q379-180 362-180Z"/></svg></span>
+      </div>
+      <span class="stat-value">{{ resumen.saludGeneral || '—' }}%</span>
+      <div class="stat-details">
+        <div class="detail-row">
+          <span class="detail-label">Estabilidad:</span>
+          <span class="detail-value">{{ resumen.estabilidad || '—' }}%</span>
+        </div>
+        <div class="stability-bar">
+          <div class="stability-fill" [style.width.%]="resumen.estabilidad || 0"></div>
+        </div>
+      </div>
+      <span class="stat-meta">{{ resumen.totalServicios || 0 }} servicios totales</span>
+    </div>
+
+    <div class="stat-card stat-ok">
+      <div class="stat-header">
+        <span class="stat-label">Operando</span>
+        <span class="stat-icon"><svg xmlns="http://www.w3.org/2000/svg" height="28px" viewBox="0 -960 960 960" width="28px" fill="#78A75A"><path d="M379.33-244 154-469.33 201.67-517l177.66 177.67 378.34-378.34L805.33-670l-426 426Z"/></svg></span>
+      </div>
+      <span class="stat-value">{{ resumen.operando || 0 }}</span>
+      <span class="stat-meta">{{ (resumen.operando || 0) > 0 ? (resumen.operando / resumen.totalServicios * 100).toFixed(1) : '0' }}%</span>
+    </div>
+
+    <div class="stat-card stat-warning">
+      <div class="stat-header">
+        <span class="stat-label">Con problemas</span>
+        <span class="stat-icon"><svg xmlns="http://www.w3.org/2000/svg" height="28px" viewBox="0 -960 960 960" width="28px" fill="#9A9A0BD4"><path d="M446.67-386.67V-760h66.66v373.33h-66.66Zm0 186.67v-66.67h66.66V-200h-66.66Zm-218 160h-122q-27 0-46.84-19.83Q40-79.67 40-106.67v-122h66.67v122h122V-40Zm502.66 0v-66.67h122v-122H920v122q0 27-19.83 46.84Q880.33-40 853.33-40h-122ZM40-731.33v-122q0-27 19.83-46.84Q79.67-920 106.67-920h122v66.67h-122v122H40Zm813.33 0v-122h-122V-920h122q27 0 46.84 19.83Q920-880.33 920-853.33v122h-66.67Z"/></svg></span>
+      </div>
+      <span class="stat-value">{{ (resumen.impactado || 0) + (resumen.degradado || 0) }}</span>
+      <span class="stat-meta">{{ ((resumen.impactado || 0) + (resumen.degradado || 0)) > 0 ? (((resumen.impactado || 0) + (resumen.degradado || 0)) / resumen.totalServicios * 100).toFixed(1) : '0' }}%</span>
+    </div>
+
+    <div class="stat-card stat-down">
+      <div class="stat-header">
+        <span class="stat-label">Interrumpidos</span>
+        <span class="stat-icon"><svg xmlns="http://www.w3.org/2000/svg" height="28px" viewBox="0 -960 960 960" width="28px" fill="#EA3323"><path d="M304.67-269.33H365l113.67-181.34L592-269.33h63.33l-143-220 132.34-201.34h-60.34l-104 165.34-104-165.34h-63L447-488.33l-142.33 219ZM480-80q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Zm-.32-66.67q138.67 0 236.16-97.16 97.49-97.17 97.49-235.85 0-138.67-97.49-236.16-97.49-97.49-236.16-97.49-138.68 0-235.85 97.49-97.16 97.49-97.16 236.16 0 138.68 97.16 235.85 97.17 97.16 235.85 97.16ZM480-480Z"/></svg></span>
+      </div>
+      <span class="stat-value">{{ resumen.interrumpido || 0 }}</span>
+      <span class="stat-meta">{{ (resumen.interrumpido || 0) > 0 ? (resumen.interrumpido / resumen.totalServicios * 100).toFixed(1) : '0' }}%</span>
+    </div>
+  </section>
+
+  <!-- BOTONES DE ACCIÓN -->
+  <div class="action-buttons-row">
+    <button class="btn-secondary">Notificaciones activas</button>
+    <button class="btn-secondary settings-btn" (click)="toggleSettings()">
+      <span class="settings-icon">⚙️</span>
+      <span class="btn-text">Ajustes</span>
+    </button>
+    <button class="btn-primary" (click)="toggleCreateService()">Crear servicio</button>
+  </div>
+
+  <!-- TABS (Sin botón Métricas) -->
+  <nav class="tabs-nav">
+    <button class="tab-button" [class.active]="activeTab === 'actual'" (click)="setActiveTab('actual')">Estado Actual</button>
+    <button class="tab-button" [class.active]="activeTab === 'tendencias'" (click)="setActiveTab('tendencias')">Tendencias</button>
+    <button class="tab-button" [class.active]="activeTab === 'mantenimiento'" (click)="setActiveTab('mantenimiento')">Mantenimiento</button>
+    <button class="tab-button" [class.active]="activeTab === 'calendario'" (click)="setActiveTab('calendario')">Calendario</button>
+    <button class="tab-button" [class.active]="activeTab === 'incidentes'" (click)="setActiveTab('incidentes')">Incidentes</button>
+  </nav>
+
+  <!-- TENDENCIAS -->
+  <section *ngIf="activeTab === 'tendencias'" class="trends-section">
+    <div class="trends-header">
+      <h2 class="section-title">📊 Tendencias de Servicios (Últimos 30 días)</h2>
+      <p class="trends-subtitle">Análisis histórico del estado y disponibilidad de servicios</p>
+    </div>
+    
+    <div class="chart-card">
+      <div class="chart-header">
+        <h3 class="chart-title">Distribución de Estados por Día</h3>
+        <p class="chart-subtitle">Cantidad de servicios en cada estado</p>
+      </div>
+      <div class="chart-wrapper">
+        <canvas id="statusAreaChart"></canvas>
+      </div>
+    </div>
+    
+    <div class="chart-card">
+      <div class="chart-header">
+        <h3 class="chart-title">Porcentaje de Disponibilidad General</h3>
+        <p class="chart-subtitle">Disponibilidad promedio del sistema</p>
+      </div>
+      <div class="chart-wrapper">
+        <canvas id="availabilityChart"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <!-- INCIDENTES TAB -->
+  <section *ngIf="activeTab === 'incidentes'" class="incidents-section">
+    <div class="incidents-header">
+      <h2 class="section-title">📋 Crear Incidente</h2>
+      <p class="incidents-subtitle">Registra un nuevo incidente en el sistema</p>
+    </div>
+
+    <div class="incidents-create">
+      <div class="form-row">
+        <label>Servicio</label>
+        <select [(ngModel)]="newIncident.serviceId" (change)="onIncidentServiceChange()">
+          <option value="">-- Seleccionar servicio --</option>
+          <option *ngFor="let s of services" [value]="s._id" [hidden]="s.activo === false">{{ s.nombre }}</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label>Título</label>
+        <input [(ngModel)]="newIncident.titulo" placeholder="Título del incidente" />
+      </div>
+      <div class="form-row">
+        <label>Descripción</label>
+        <textarea [(ngModel)]="newIncident.descripcion" placeholder="Descripción detallada"></textarea>
+      </div>
+      <div class="form-row">
+        <label>Estado</label>
+        <select [(ngModel)]="newIncident.estado">
+          <option value="Abierto">Abierto</option>
+          <option value="En progreso">En progreso</option>
+          <option value="Resuelto">Resuelto</option>
+        </select>
+      </div>
+
+      <div class="form-row">
+        <label>Severidad</label>
+        <select [(ngModel)]="newIncident.severidad">
+          <option value="Baja">Baja</option>
+          <option value="Media">Media</option>
+          <option value="Alta">Alta</option>
+        </select>
+      </div>
+
+      <div class="form-row">
+        <label>Cadena</label>
+        <input [(ngModel)]="newIncident.cadena" placeholder="Cadena de restaurante" />
+      </div>
+
+      <div class="form-row">
+        <label>Restaurante</label>
+        <input [(ngModel)]="newIncident.restaurante" placeholder="Restaurante específico" />
+      </div>
+      <div class="form-actions">
+        <button class="btn-primary" (click)="createIncident()">Crear incidente</button>
+        <button class="btn-secondary" (click)="toggleDeleteIncident()">Borrar incidente</button>
+      </div>
+    </div>
+
+    <!-- Modal para eliminar incidente -->
+    <section *ngIf="showDeleteIncident" class="delete-incident-modal-overlay" (click)="toggleDeleteIncident()">
+      <div class="delete-incident-modal" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <h2>🗑️ Eliminar Incidente</h2>
+          <button class="modal-close" (click)="toggleDeleteIncident()">✕</button>
+        </div>
+        <div class="modal-content">
+          <p class="modal-subtitle">Selecciona el incidente que deseas eliminar</p>
+          
+          <div class="form-row">
+            <label>Seleccionar Incidente</label>
+            <select [(ngModel)]="selectedIncidentToDelete">
+              <option value="">-- Seleccionar incidente --</option>
+              <option *ngFor="let incident of incidents" [value]="incident._id">
+                {{ incident.titulo }} ({{ incident.severidad }}) - {{ incident.estado }}
+              </option>
+            </select>
+          </div>
+
+          <div class="form-actions">
+            <button class="btn-primary btn-delete" (click)="confirmAndDeleteIncident()" [disabled]="deletingIncident || !selectedIncidentToDelete">
+              {{ deletingIncident ? '⏳ Eliminando...' : '🗑️ Eliminar' }}
+            </button>
+            <button class="btn-secondary" (click)="toggleDeleteIncident()" [disabled]="deletingIncident">Cancelar</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Lista de incidentes recientes -->
+    <div class="incidents-list">
+      <h3 class="section-title" style="margin-top: 32px;">Incidentes Recientes</h3>
+      <div
+        class="incident-card"
+        *ngFor="let incident of incidents"
+        [ngClass]="{
+          'high': incident.severidad === 'Alta',
+          'medium': incident.severidad === 'Media',
+          'low': incident.severidad === 'Baja'
+        }">
+        <div class="incident-header">
+          <h4>{{ incident.titulo }}</h4>
+          <span class="incident-status" [ngClass]="incident.estado.toLowerCase().replace(' ', '-')">
+            {{ incident.estado }}
+          </span>
+        </div>
+        <p class="incident-description">{{ incident.descripcion }}</p>
+        <div class="incident-meta">
+          <span class="meta-item">🏪 {{ incident.cadena || 'Sin cadena' }}</span>
+          <span class="meta-item">📍 {{ incident.restaurante || 'Sin restaurante' }}</span>
+          <span class="meta-item severity" [ngClass]="'severity-' + incident.severidad.toLowerCase()">
+            {{ incident.severidad }}
+          </span>
+        </div>
+      </div>
+      <div *ngIf="!incidents || incidents.length === 0" class="no-incidents">
+        No hay incidentes registrados 🎉
+      </div>
+    </div>
+  </section>
+
+  <!-- MANTENIMIENTO -->
+  <section class="maintenance-section" *ngIf="activeTab === 'mantenimiento'">
+    <h2 class="section-title">Mantenimiento</h2>
+    <div class="maintenance-area">
+      <app-maintenance (onSaved)="loadData()"></app-maintenance>
+    </div>
+  </section>
+
+  <!-- CALENDARIO -->
+  <section class="calendar-section" *ngIf="activeTab === 'calendario'">
+    <div class="calendar-header">
+      <h2 class="calendar-month">
+        📅 {{ getMonthName(currentMonth) }} {{ currentYear }}
+      </h2>
+      <div class="calendar-nav">
+        <button class="nav-button" (click)="previousMonth()">‹</button>
+        <button class="nav-button" (click)="nextMonth()">›</button>
+      </div>
+    </div>
+
+    <div class="calendar-weekdays">
+      <div class="weekday">Dom</div>
+      <div class="weekday">Lun</div>
+      <div class="weekday">Mar</div>
+      <div class="weekday">Mié</div>
+      <div class="weekday">Jue</div>
+      <div class="weekday">Vie</div>
+      <div class="weekday">Sáb</div>
+    </div>
+
+    <div class="calendar-grid">
+      <div
+        *ngFor="let day of calendarDays"
+        class="calendar-day"
+        [class.today]="day.isToday"
+        [class.empty]="!day.date"
+      >
+        <span class="day-number" *ngIf="day.date">{{ day.date }}</span>
+
+        <span
+          *ngIf="day.incident"
+          class="incident-indicator"
+          [ngClass]="{
+            'warning': day.incident.status === 'warning',
+            'down': day.incident.status === 'down'
+          }"
+        ></span>
+      </div>
+    </div>
+
+    <div class="calendar-incidents">
+      <h3 class="calendar-incidents-title">⚠️ Incidentes del Mes</h3>
+
+      <div class="incidents-column" *ngIf="recentIncidents.length > 0">
+        <div
+          class="incident-item"
+          *ngFor="let incident of recentIncidents"
+        >
+          <div class="incident-header">
+            <span class="incident-service" [title]="incident.service">
+              {{ incident.service }}
+            </span>
+            <span class="incident-date">
+              {{ incident.date }}
+            </span>
+          </div>
+
+          <div class="incident-description">
+            {{ incident.description }}
+          </div>
+
+          <div class="incident-duration">
+            ⏱️ {{ incident.duration }}
+          </div>
+        </div>
+      </div>
+
+      <div
+        class="incident-empty"
+        *ngIf="!recentIncidents.length"
+      >
+        ✅ No hay incidentes en este mes - ¡Excelente!
+      </div>
+    </div>
+
+    <!-- ESTADÍSTICAS DE MANTENIMIENTO -->
+    <div class="stats-section">
+      <div class="stat-box">
+        <h4 class="stat-box-title">🔧 Mantenimiento</h4>
+        <div class="stat-grid">
+          <div class="stat-item">
+            <span class="stat-label">Programados</span>
+            <span class="stat-number">{{ monthlyMaintenances.length }}</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Activos</span>
+            <span class="stat-number active">{{ activeMaintenances }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ESTADO DE SERVICIOS EN EL PERÍODO -->
+      <div class="stat-box">
+        <h4 class="stat-box-title">📊 Estado del Período</h4>
+        <div class="stat-grid">
+          <div class="stat-item">
+            <span class="stat-label">Con Problemas</span>
+            <span class="stat-number problem">{{ servicesWithProblems }}</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Resolución Prom.</span>
+            <span class="stat-number">{{ avgResolutionTime }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- SERVICIOS MÁS AFECTADOS -->
+      <div class="stat-box">
+        <h4 class="stat-box-title">⚡ Más Afectados</h4>
+        <div class="affected-services">
+          <div class="affected-item" *ngFor="let svc of mostAffectedServices">
+            <span class="svc-name">{{ svc.name }}</span>
+            <span class="svc-count">{{ svc.count }} inc.</span>
+          </div>
+          <div class="affected-empty" *ngIf="mostAffectedServices.length === 0">
+            Ninguno
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ALERTAS RÁPIDAS -->
+    <div class="alerts-section">
+      <div class="alert-box">
+        <h4 class="alert-box-title">🚨 Incidentes Sin Resolver</h4>
+        <div class="alert-list">
+          <div class="alert-item" *ngFor="let incident of unresolvedIncidents">
+            <div class="alert-service">{{ incident.service }}</div>
+            <div class="alert-info">
+              <span class="alert-severity" [ngClass]="incident.severity.toLowerCase()">
+                {{ incident.severity }}
+              </span>
+              <span class="alert-time">{{ incident.days }}d</span>
+            </div>
+          </div>
+          <div class="alert-empty" *ngIf="unresolvedIncidents.length === 0">
+            ✅ Ninguno
+          </div>
+        </div>
+      </div>
+
+      <div class="alert-box">
+        <h4 class="alert-box-title">⏰ Mantenimientos Vencidos</h4>
+        <div class="alert-list">
+          <div class="alert-item" *ngFor="let maint of overdueMaintenances">
+            <div class="alert-service">{{ maint.service }}</div>
+            <div class="alert-overdue">{{ maint.daysOverdue }}d vencido</div>
+          </div>
+          <div class="alert-empty" *ngIf="overdueMaintenances.length === 0">
+            ✅ Ninguno
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- LISTA DE SERVICIOS -->
+  <section class="services-section" *ngIf="activeTab !== 'mantenimiento' && activeTab !== 'calendario' && activeTab !== 'tendencias'">
+    <h2 class="section-title">Lista de Servicios</h2>
+
+    <div style="margin-bottom:12px">
+      <!-- mantenimiento movido al final de la página para mejor orden visual -->
+    </div>
+
+    <div class="filters-bar">
+      <div class="filters-row">
+        <div class="filter-item">
+          <label>Estado</label>
+          <select [(ngModel)]="filtroServiciosEstado">
+            <option value="">Todos</option>
+            <option *ngFor="let e of estados" [value]="e">{{ e }}</option>
+          </select>
+        </div>
+        <div class="filter-item">
+          <label>Importancia</label>
+          <select [(ngModel)]="filtroServiciosImportancia">
+            <option value="">Todas</option>
+            <option value="alta">Alta</option>
+            <option value="media">Media</option>
+            <option value="baja">Baja</option>
+          </select>
+        </div>
+        <div class="filter-item">
+          <label>Cadena</label>
+          <input list="cadenasList" [(ngModel)]="filtroServiciosCadena" placeholder="Filtrar..." />
+        </div>
+        <div class="filter-item">
+          <label>Restaurante</label>
+          <input list="restaurantesList" [(ngModel)]="filtroServiciosRestaurante" placeholder="Filtrar..." />
+        </div>
+      </div>
+      <div class="filter-actions">
+        <button class="btn-secondary" (click)="filtroServiciosEstado=''; filtroServiciosImportancia=''; filtroServiciosCadena=''; filtroServiciosRestaurante=''">Limpiar</button>
+        <button class="btn-primary" (click)="currentPage = 1">Filtrar</button>
+      </div>
+    </div>
+
+  <!-- CREATE SERVICE MODAL -->
+  <section *ngIf="showCreateService" class="create-modal-overlay" (click)="toggleCreateService()">
+    <div class="create-modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>➕ Crear nuevo servicio</h2>
+        <button class="modal-close" (click)="toggleCreateService()">✕</button>
+      </div>
+      <div class="modal-content">
+        <p class="modal-subtitle">Rellena los datos básicos para crear un nuevo servicio de monitoreo</p>
+
+        <div class="form-grid">
+          <div class="form-row">
+            <label>Nombre *</label>
+            <input [(ngModel)]="newService.nombre" placeholder="Nombre del servicio" required />
+          </div>
+
+          <div class="form-row">
+            <label>Descripción</label>
+            <textarea [(ngModel)]="newService.descripcion" placeholder="Descripción del servicio..."></textarea>
+          </div>
+
+          <div class="form-row">
+            <label>Cadena</label>
+            <input [(ngModel)]="newService.clasificacion.cadena" placeholder="Ej: GRUPO KFC" />
+          </div>
+
+          <div class="form-row">
+            <label>Restaurante</label>
+            <input [(ngModel)]="newService.clasificacion.restaurante" placeholder="Ej: KFC MALL DEL SOL" />
+          </div>
+
+          <div class="form-row">
+            <label>URL *</label>
+            <input [(ngModel)]="newService.endpoint.url" placeholder="https://example.com/health" required />
+          </div>
+
+          <div class="form-row">
+            <label>Método HTTP</label>
+            <select [(ngModel)]="newService.endpoint.metodo">
+              <option value="GET">GET</option>
+              <option value="POST">POST</option>
+              <option value="PUT">PUT</option>
+              <option value="PATCH">PATCH</option>
+              <option value="DELETE">DELETE</option>
+              <option value="HEAD">HEAD</option>
+            </select>
+          </div>
+
+          <div class="form-row">
+            <label>Tipo</label>
+            <select [(ngModel)]="newService.tipo">
+              <option value="backend">🔧 Backend</option>
+              <option value="frontend">🎨 Frontend</option>
+              <option value="infra">📦 Infraestructura</option>
+            </select>
+          </div>
+
+          <div class="form-row">
+            <label>Ambiente</label>
+            <select [(ngModel)]="newService.ambiente">
+              <option value="produccion">🚀 Producción</option>
+              <option value="staging">🧪 Staging</option>
+              <option value="desarrollo">💻 Desarrollo</option>
+            </select>
+          </div>
+
+          <div class="form-row">
+            <label>Importancia</label>
+            <select [(ngModel)]="newService.importancia">
+              <option value="alta">🔴 Alta</option>
+              <option value="media">🟡 Media</option>
+              <option value="baja">🟢 Baja</option>
+            </select>
+          </div>
+
+          <div class="form-row checkbox-row">
+            <input type="checkbox" id="serviceActive" [(ngModel)]="newService.activo" />
+            <label for="serviceActive">Servicio activo</label>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button class="btn-primary" (click)="createService()" [disabled]="creating">
+            {{ creating ? '⏳ Creando...' : '✓ Crear servicio' }}
+          </button>
+          <button class="btn-secondary" (click)="toggleCreateService()" [disabled]="creating">Cancelar</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+    <div class="services-grid">
+      <div
+        class="service-card"
+        *ngFor="let service of filteredServices"
+        [ngClass]="{
+          'ok': service.estado === 'Operando normalmente',
+          'impact': service.estado === 'Impactado',
+          'degraded': service.estado === 'Degradado',
+          'down': service.estado === 'Interrumpido'
+        }"
+      >
+          <!-- Status Flag Corner -->
+          <div class="status-flag" [ngClass]="{
+            'flag-ok': service.estado === 'Operando normalmente',
+            'flag-impact': service.estado === 'Impactado',
+            'flag-degraded': service.estado === 'Degradado',
+            'flag-down': service.estado === 'Interrumpido'
+          }"></div>
+          
+          <div class="service-header">
+            <div class="service-title">
+              <div *ngIf="editingServiceId !== service._id">
+                <span class="service-name">{{ service.nombre }}</span>
+              </div>
+
+              <div *ngIf="editingServiceId === service._id">
+                <input [(ngModel)]="editingService.nombre" />
+              </div>
+
+              <span *ngIf="service.maintenanceMode" class="maintenance-badge">En mantenimiento</span>
+              <span class="service-status">{{ service.estado }}</span>
+              <span *ngIf="getLastHealthStatus(service._id)" class="health-check-badge">Últ. check: {{ getLastHealthStatus(service._id) }}</span>
+            </div>
+
+            <!-- acciones movidas abajo para mejor layout -->
+          </div>
+
+          <div class="service-meta">
+            <span *ngIf="service.clasificacion?.cadena">📦 {{ service.clasificacion.cadena }}</span>
+            <span *ngIf="service.clasificacion?.restaurante">🏷 {{ service.clasificacion.restaurante }}</span>
+            <span *ngIf="service.importancia" class="importance">⚑ {{ service.importancia }}</span>
+            <span *ngIf="service.manualImportanciaOverride" class="importance-locked" title="Escalamiento automático bloqueado">🔒 Manual</span>
+            <span *ngIf="service.version">🧬 v{{ service.version }}</span>
+          </div>
+
+          <div class="service-actions" style="margin-top:8px; justify-content:flex-end;">
+            <button class="btn-secondary" *ngIf="editingServiceId !== service._id" (click)="startEdit(service)">Editar</button>
+            <button class="btn-secondary" *ngIf="editingServiceId !== service._id" (click)="deleteService(service._id)">Eliminar</button>
+            <button class="btn-primary" *ngIf="editingServiceId === service._id" (click)="saveEdit(service._id)" [disabled]="savingEdit">Guardar</button>
+            <button class="btn-secondary" *ngIf="editingServiceId === service._id" (click)="cancelEdit()">Cancelar</button>
+          </div>
+
+          <div *ngIf="editingServiceId !== service._id">
+            <p class="service-description" *ngIf="service.descripcion">{{ service.descripcion }}</p>
+          </div>
+
+          <div *ngIf="editingServiceId === service._id" class="form-grid" style="margin-top:8px;">
+            <div class="form-row">
+              <label>Descripción</label>
+              <textarea [(ngModel)]="editingService.descripcion"></textarea>
+            </div>
+
+            <div class="form-row">
+              <label>Cadena</label>
+              <input [(ngModel)]="editingService.clasificacion.cadena" />
+            </div>
+
+            <div class="form-row">
+              <label>Restaurante</label>
+              <input [(ngModel)]="editingService.clasificacion.restaurante" />
+            </div>
+
+            <div class="form-row">
+              <label>URL</label>
+              <input [(ngModel)]="editingService.endpoint.url" placeholder="https://example.com/health" />
+            </div>
+
+            <div class="form-row">
+              <label>Método HTTP</label>
+              <select [(ngModel)]="editingService.endpoint.metodo">
+                <option value="GET">GET</option>
+                <option value="POST">POST</option>
+                <option value="PUT">PUT</option>
+                <option value="PATCH">PATCH</option>
+                <option value="DELETE">DELETE</option>
+                <option value="HEAD">HEAD</option>
+              </select>
+            </div>
+
+            <div class="form-row">
+              <label>Importancia</label>
+              <select [(ngModel)]="editingService.importancia">
+                <option value="alta">Alta</option>
+                <option value="media">Media</option>
+                <option value="baja">Baja</option>
+              </select>
+            </div>
+
+            <div class="form-row checkbox-row">
+              <input type="checkbox" id="manualImportanciaOverride" [(ngModel)]="editingService.manualImportanciaOverride" />
+              <label for="manualImportanciaOverride" style="font-size: 13px;" title="Evita que el sistema aumente automáticamente la importancia cuando el servicio tenga problemas">
+                🔒 Bloquear escalamiento automático de importancia
+              </label>
+            </div>
+            <div *ngIf="editingService.manualImportanciaOverride" style="font-size: 12px; color: #6b7280; padding: 8px 12px; background: #f3f4f6; border-radius: 6px; margin-top: -8px; margin-bottom: 8px;">
+              ℹ️ El sistema no modificará automáticamente la importancia de este servicio, incluso si está interrumpido o impactado.
+            </div>
+
+            <div class="form-row checkbox-row">
+              <label>Activo</label>
+              <input type="checkbox" [(ngModel)]="editingService.activo" />
+            </div>
+          </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- HEALTH CHECKS -->
+  <section class="health-section" *ngIf="activeTab === 'actual'">
+    <div class="section-header">
+      <h2 class="section-title">🏥 Health Checks</h2>
+      <p class="section-subtitle">Monitoreo de servicios en tiempo real</p>
+    </div>
+    
+    <div class="filters-bar checks-filters">
+      <div class="filters-row">
+        <div class="filter-item">
+          <label>Desde</label>
+          <input type="date" [(ngModel)]="filtroChecksDesde" />
+        </div>
+        <div class="filter-item">
+          <label>Hasta</label>
+          <input type="date" [(ngModel)]="filtroChecksHasta" />
+        </div>
+        <div class="filter-item">
+          <label>Estado</label>
+          <select [(ngModel)]="filtroChecksEstado">
+            <option value="">Todos</option>
+            <option *ngFor="let e of estados" [value]="e">{{ e }}</option>
+          </select>
+        </div>
+        <div class="filter-item">
+          <label>Importancia</label>
+          <select [(ngModel)]="filtroChecksImportancia">
+            <option value="">Todas</option>
+            <option value="alta">Alta</option>
+            <option value="media">Media</option>
+            <option value="baja">Baja</option>
+          </select>
+        </div>
+        <div class="filter-item">
+          <label>Cadena</label>
+          <input list="cadenasList" [(ngModel)]="filtroChecksCadena" placeholder="Filtrar..." />
+        </div>
+        <div class="filter-item">
+          <label>Restaurante</label>
+          <input list="restaurantesList" [(ngModel)]="filtroChecksRestaurante" placeholder="Filtrar..." />
+        </div>
+      </div>
+      <div class="filter-actions">
+        <button class="btn-secondary" (click)="filtroChecksDesde=''; filtroChecksHasta=''; filtroChecksEstado=''; filtroChecksImportancia=''; filtroChecksCadena=''; filtroChecksRestaurante=''">Limpiar</button>
+        <button class="btn-primary" (click)="currentPage = 1">Filtrar</button>
+      </div>
+    </div>
+
+    <div class="health-list">
+      <div
+        class="health-card"
+        *ngFor="let check of healthChecksPage"
+        [ngClass]="{
+          'ok': check.estado === 'Operando normalmente',
+          'impact': check.estado === 'Impactado',
+          'degraded': check.estado === 'Degradado',
+          'down': check.estado === 'Interrumpido'
+        }"
+      >
+        <div class="health-header">
+          <div class="health-title">
+            <span class="health-service">{{ getServiceNameById(check.serviceId) }}</span>
+            <span class="health-badge">{{ check.estado }}</span>
+            <span *ngIf="check.importancia" class="health-importance">⚑ {{ check.importancia }}</span>
+          </div>
+        </div>
+
+        <div class="health-meta">
+          <span *ngIf="check.cadena">{{ check.cadena }}</span>
+          <span *ngIf="check.restaurante">{{ check.restaurante }}</span>
+        </div>
+
+        <div class="health-details">
+          <span *ngIf="check.tiempoRespuestaMs" class="detail-item">⏱ {{ check.tiempoRespuestaMs }} ms</span>
+          <span *ngIf="check.codigoRespuesta" class="detail-item">🔢 {{ check.codigoRespuesta }}</span>
+          <span class="detail-item">🕒 {{ check.fechaRevision || check.fecha | date:'short' }}</span>
+        </div>
+
+        <div class="health-message" *ngIf="check.mensaje">
+          {{ check.mensaje }}
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGINACIÓN -->
+    <div class="health-pagination" *ngIf="totalHealthPages > 1">
+      <button class="page-btn" (click)="prevPage()" [disabled]="currentPage === 1">‹</button>
+
+      <button
+        class="page-btn"
+        *ngFor="let p of [].constructor(totalHealthPages); let i = index"
+        (click)="goToPage(i + 1)"
+        [class.active]="currentPage === i + 1"
+      >
+        {{ i + 1 }}
+      </button>
+
+      <button class="page-btn" (click)="nextPage()" [disabled]="currentPage === totalHealthPages">›</button>
+    </div>
+  </section>
+
+  <!-- ESPACIADO FINAL -->
+  <div class="page-bottom-spacing"></div>
+
+  </div>

@@ -1,0 +1,49 @@
+@baseUrl = http://localhost:3000
+
+###INCIDENTES
+
+### Obtener todos los incidentes
+GET {{baseUrl}}/incidents
+
+### Incidentes por servicio 
+GET {{baseUrl}}/incidents/service/srv-001
+
+### Incidentes abiertos
+GET {{baseUrl}}/incidents?estado=Abierto
+
+### Incidentes por cadena
+GET {{baseUrl}}/incidents?cadena=KFC
+
+### Crear incidente
+POST {{baseUrl}}/incidents
+Content-Type: application/json
+
+{
+  "_id": "inc-003",
+  "serviceId": "srv-003",
+  "titulo": "Latencia elevada",
+  "descripcion": "Tiempo de respuesta superior a 5s",
+  "severidad": "Alta",
+  "estado": "Abierto",
+  "cadena": "KFC",
+  "restaurante": "KFC Mall del Sol",
+  "fechaInicio": "2025-12-23T16:00:00Z"
+}
+
+### Agregar actualización
+POST {{baseUrl}}/incidents/inc-002/actualizaciones
+Content-Type: application/json
+
+{
+  "mensaje": "hola",
+  "fecha": "2025-12-23T16:10:00Z"
+}
+
+### Resolver incidente
+PATCH {{baseUrl}}/incidents/inc-003/estado
+Content-Type: application/json
+
+{
+  "estado": "Resuelto",
+  "fechaResolucion": "2025-12-23T17:00:00Z"
+}

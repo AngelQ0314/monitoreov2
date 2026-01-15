@@ -1,0 +1,115 @@
+<div class="settings-panel">
+  <!-- Sección de configuración -->
+  <div *ngIf="!showDeletedServices" class="settings-content">
+    <div class="settings-section">
+      <h3 class="settings-title">⏱️ Configuración de Intervalos</h3>
+      <p class="settings-description">Define con qué frecuencia se realizarán los health checks según la importancia del servicio</p>
+
+      <div class="settings-group">
+        <div class="setting-item">
+          <label class="setting-label">
+            <span class="label-icon">🔴</span>
+            Intervalo Alta (segundos)
+          </label>
+          <input type="number" [(ngModel)]="model.intervalHighS" class="setting-input" placeholder="60" min="10" />
+          <span class="setting-hint">Servicios críticos - Se verifica frecuentemente</span>
+        </div>
+
+        <div class="setting-item">
+          <label class="setting-label">
+            <span class="label-icon">🟡</span>
+            Intervalo Media (segundos)
+          </label>
+          <input type="number" [(ngModel)]="model.intervalMediumS" class="setting-input" placeholder="300" min="30" />
+          <span class="setting-hint">Servicios normales - Verificación moderada</span>
+        </div>
+
+        <div class="setting-item">
+          <label class="setting-label">
+            <span class="label-icon">🟢</span>
+            Intervalo Baja (segundos)
+          </label>
+          <input type="number" [(ngModel)]="model.intervalLowS" class="setting-input" placeholder="600" min="60" />
+          <span class="setting-hint">Servicios no críticos - Verificación ocasional</span>
+        </div>
+
+        <div class="setting-item">
+          <label class="setting-label">
+            <span class="label-icon">⚡</span>
+            Jitter Máximo (segundos)
+          </label>
+          <input type="number" [(ngModel)]="model.jitterMaxS" class="setting-input" placeholder="12" min="1" />
+          <span class="setting-hint">Variación aleatoria para evitar picos</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <h3 class="settings-title">🔔 Configuración de Incidentes</h3>
+      
+      <div class="setting-checkbox">
+        <input type="checkbox" id="autoIncident" [(ngModel)]="model.autoIncidentCreation" />
+        <label for="autoIncident" class="checkbox-label">
+          Crear incidentes automáticos desde Health Checks
+        </label>
+        <span class="checkbox-hint">Se generarán incidentes cuando se detecte un problema</span>
+      </div>
+    </div>
+
+    <div class="settings-actions">
+      <button class="btn-primary" (click)="save()" [disabled]="saving">
+        {{ saving ? '💾 Guardando...' : '✓ Guardar cambios' }}
+      </button>
+      <span class="save-message" [class.success]="message.includes('éxito')" [class.error]="message.includes('Error')">
+        {{ message }}
+      </span>
+    </div>
+
+    <div class="settings-footer">
+      <button class="btn-secondary" (click)="toggleDeletedServices()">
+        👁️ Ver servicios eliminados
+      </button>
+    </div>
+  </div>
+
+  <!-- Sección de servicios eliminados -->
+  <div *ngIf="showDeletedServices" class="deleted-services-content">
+    <div class="deleted-header">
+      <h3 class="settings-title">🗑️ Servicios Eliminados</h3>
+      <button class="btn-close" (click)="toggleDeletedServices()">✕ Volver a Ajustes</button>
+    </div>
+
+    <div class="deleted-list">
+      <div *ngIf="deletedServices && deletedServices.length > 0; else noDeleted">
+        <div class="deleted-service-card" *ngFor="let service of deletedServices">
+          <div class="deleted-service-header">
+            <div>
+              <h4>{{ service.nombre }}</h4>
+              <p class="deleted-service-desc">{{ service.descripcion }}</p>
+            </div>
+            <div class="deleted-service-actions">
+              <button class="btn-secondary" (click)="restoreService(service._id)" [disabled]="restoring">
+                {{ restoring ? '⏳ Restaurando...' : '♻️ Restaurar' }}
+              </button>
+              <button class="btn-danger" (click)="permanentlyDeleteService(service._id)" [disabled]="deleting">
+                {{ deleting ? '⏳ Eliminando...' : '🗑️ Eliminar' }}
+              </button>
+            </div>
+          </div>
+          <div class="deleted-service-info">
+            <span>🏢 Tipo: {{ service.tipo }}</span>
+            <span>📦 Endpoint: {{ service.endpoint?.url || 'Sin endpoint' }}</span>
+            <span>⭐ Importancia: {{ service.importancia }}</span>
+            <span>📅 Eliminado: {{ service.deletedAt | date:'short' }}</span>
+          </div>
+        </div>
+      </div>
+
+      <ng-template #noDeleted>
+        <div class="no-deleted-services">
+          <p>No hay servicios eliminados 🎉</p>
+        </div>
+      </ng-template>
+    </div>
+  </div>
+</div>
