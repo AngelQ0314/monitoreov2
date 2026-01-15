@@ -1293,6 +1293,8 @@
 .page-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+  background: transparent;
+  border: none;
 }
 
 .health-card.down .health-dot {

@@ -87,6 +87,7 @@ export class Dashboard implements OnInit, AfterViewInit {
   filtroChecksImportancia: string = '';
   filtroChecksCadena: string = '';
   filtroChecksRestaurante: string = '';
+  filtroChecksLimite: number = 100; // Límite de registros a cargar
 
   // ========================================
   // NUEVO SERVICIO
@@ -250,7 +251,7 @@ export class Dashboard implements OnInit, AfterViewInit {
     Promise.all([
       this.apiService.getServices(filtros).toPromise(),
       this.apiService.getIncidents().toPromise(),
-      this.apiService.getHealthChecks().toPromise()
+      this.apiService.getHealthChecks(this.filtroChecksLimite).toPromise()
     ]).then(([services, incidents, healthChecks]) => {
       this.services = services || [];
       this.incidents = incidents || [];
@@ -923,6 +924,42 @@ export class Dashboard implements OnInit, AfterViewInit {
     if (this.currentPage > 1) {
       this.currentPage--;
     }
+  }
+
+  getVisiblePages(): (number | string)[] {
+    const total = this.totalHealthPages;
+    const current = this.currentPage;
+    const pages: (number | string)[] = [];
+    
+    if (total <= 20) {
+      // Si hay 20 o menos páginas, mostrar todas
+      for (let i = 1; i <= total; i++) {
+        pages.push(i);
+      }
+    } else {
+      // Siempre mostrar las primeras páginas hasta la 20 si estamos cerca del inicio
+      if (current <= 10) {
+        for (let i = 1; i <= 20; i++) {
+          pages.push(i);
+        }
+        pages.push('...', total);
+      } else if (current >= total - 9) {
+        // Si estamos cerca del final
+        pages.push(1, '...');
+        for (let i = total - 19; i <= total; i++) {
+          pages.push(i);
+        }
+      } else {
+        // Si estamos en el medio
+        pages.push(1, '...');
+        for (let i = current - 3; i <= current + 3; i++) {
+          pages.push(i);
+        }
+        pages.push('...', total);
+      }
+    }
+    
+    return pages;
   }
 
   // ========================================

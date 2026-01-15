@@ -93,8 +93,12 @@ export class ApiService {
   }
 
   // Health-checks
-  getHealthChecks(): Observable<any> {
-    return this.http.get(`${this.baseUrl}/health-checks`);
+  getHealthChecks(limit?: number): Observable<any> {
+    const params: any = {};
+    if (limit !== undefined && limit !== null) {
+      params.limit = limit.toString();
+    }
+    return this.http.get(`${this.baseUrl}/health-checks`, { params });
   }
 
   // Settings

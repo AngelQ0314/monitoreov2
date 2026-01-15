@@ -147,10 +147,23 @@ export class HealthChecksService implements OnModuleInit {
       };
     }
 
-    return this.model
+    const queryBuilder = this.model
       .find(filter)
-      .sort({ fechaRevision: -1 })
-      .limit(Number(query.limit) || 50);
+      .sort({ fechaRevision: -1 });
+    
+    // Si limit es 0 (string "0"), no aplicar límite (traer todos)
+    if (query.limit !== undefined && query.limit !== null) {
+      const limit = Number(query.limit);
+      if (limit > 0) {
+        queryBuilder.limit(limit);
+      }
+      // Si limit es exactamente 0, no se aplica límite (traer todos)
+    } else {
+      // Si no se especifica límite, usar 100 por defecto
+      queryBuilder.limit(100);
+    }
+    
+    return queryBuilder;
   }
 
   async findByService(serviceId: string) {
