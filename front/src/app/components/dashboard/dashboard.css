@@ -1680,6 +1680,18 @@
   gap: 16px;
 }
 
+.incidents-list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: -16px;
+}
+
+.incidents-list-header h3 {
+  margin: 0;
+}
+
 .incident-card {
   background: #ffffff;
   border-radius: 12px;

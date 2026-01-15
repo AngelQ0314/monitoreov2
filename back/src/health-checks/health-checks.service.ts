@@ -676,12 +676,15 @@ export class HealthChecksService implements OnModuleInit {
 
     // Create a new incident
     try {
-      const severityMap: any = {
-        'Interrumpido': 'Alta',
-        'Impactado': 'Alta',
-        'Degradado': 'Media',
+      // Usar la importancia actual del servicio (respetando override manual)
+      const currentImportancia = service.importancia || 'media';
+      const severidadMap: any = {
+        'alta': 'Alta',
+        'media': 'Media',
+        'baja': 'Baja',
       };
-      const sev = severityMap[estado] || 'Alta';
+      const sev = severidadMap[currentImportancia.toLowerCase()] || 'Alta';
+      
       const dto: any = {
         serviceId: service._id,
         titulo: `Auto: ${service.nombre || service._id} - ${estado}`,
@@ -694,7 +697,7 @@ export class HealthChecksService implements OnModuleInit {
       };
 
       await this.incidentsService.create(dto);
-      this.logger.log(`Auto-created incident for service ${service._id} due to ${failures.length} failed checks`);
+      this.logger.log(`Auto-created incident for service ${service._id} due to ${failures.length} failed checks with severity ${sev}`);
     } catch (err) {
       this.logger.warn('Error auto-creating incident:', err?.message || err);
     }

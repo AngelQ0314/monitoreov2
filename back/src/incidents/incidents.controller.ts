@@ -40,6 +40,11 @@ export class IncidentsController {
     return this.incidentsService.findAll(query);
   }
 
+    @Delete('all')
+    removeAll() {
+      return this.incidentsService.removeAll();
+    }
+
     @Delete(':id')
     remove(@Param('id') id: string) {
       return this.incidentsService.remove(id);

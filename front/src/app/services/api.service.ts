@@ -65,6 +65,10 @@ export class ApiService {
     return this.http.delete(`${this.baseUrl}/incidents/${id}`);
   }
 
+  deleteAllIncidents(): Observable<any> {
+    return this.http.delete(`${this.baseUrl}/incidents/all`);
+  }
+
   // Mantenimiento
   getMaintenance(): Observable<any> {
     return this.http.get(`${this.baseUrl}/maintenance`);

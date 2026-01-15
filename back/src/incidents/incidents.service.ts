@@ -148,4 +148,24 @@ export class IncidentsService {
       throw err;
     }
   }
+
+  async removeAll() {
+    // Eliminar todos los incidentes
+    const incidents = await this.incidentModel.find({}).exec();
+    
+    const results: any[] = [];
+    for (const incident of incidents) {
+      try {
+        const removed = await this.remove(incident._id.toString());
+        results.push(removed);
+      } catch (err) {
+        console.warn(`Error eliminando incidente ${incident._id}:`, err?.message || err);
+      }
+    }
+
+    return { 
+      eliminados: results.length,
+      total: incidents.length 
+    };
+  }
 }

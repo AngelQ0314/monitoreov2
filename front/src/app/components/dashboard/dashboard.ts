@@ -703,6 +703,32 @@ export class Dashboard implements OnInit, AfterViewInit {
     });
   }
 
+  deleteAllIncidents() {
+    if (this.incidents.length === 0) {
+      alert('No hay incidentes para eliminar');
+      return;
+    }
+
+    if (!confirm(`¿Eliminar TODOS los incidentes? (${this.incidents.length} incidente${this.incidents.length === 1 ? '' : 's'})`)) {
+      return;
+    }
+
+    if (!confirm('⚠️ ADVERTENCIA: Esta acción eliminará permanentemente todos los incidentes del sistema. ¿Estás seguro?')) {
+      return;
+    }
+
+    this.apiService.deleteAllIncidents().subscribe({
+      next: (result: any) => {
+        alert(`✓ Se eliminaron ${result.eliminados} de ${result.total} incidentes`);
+        this.loadData();
+      },
+      error: (err) => {
+        console.error('Error eliminando todos los incidentes', err);
+        alert('❌ Error al eliminar todos los incidentes. Intenta de nuevo.');
+      }
+    });
+  }
+
   loadRecentIncidents() {
     this.recentIncidents = [...this.incidents]
       .sort((a, b) => +new Date(b.fechaInicio) - +new Date(a.fechaInicio))

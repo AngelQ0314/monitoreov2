@@ -212,7 +212,12 @@
 
     <!-- Lista de incidentes recientes -->
     <div class="incidents-list">
-      <h3 class="section-title" style="margin-top: 32px;">Incidentes Recientes</h3>
+      <div class="incidents-list-header">
+        <h3 class="section-title" style="margin-top: 32px;">Incidentes Recientes</h3>
+        <button class="btn-danger" (click)="deleteAllIncidents()" *ngIf="incidents && incidents.length > 0">
+          🗑️ Eliminar todos
+        </button>
+      </div>
       <div
         class="incident-card"
         *ngFor="let incident of incidents"
