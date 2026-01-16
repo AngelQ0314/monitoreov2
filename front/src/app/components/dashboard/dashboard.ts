@@ -50,6 +50,13 @@ export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
   successMessage = '';
   successNotificationTimeout: any = null;
   
+  // Sistema de notificaciones
+  showNotifications = false;
+  activeNotifications: any[] = [];
+  private previousServiceStates: Map<string, string> = new Map();
+  private notificationIdCounter = 0;
+  notificationsEnabled = true; // Control para activar/desactivar notificaciones
+  
   // ========================================
   // DATOS PRINCIPALES
   // ========================================
@@ -298,6 +305,9 @@ export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
       this.incidents = incidents || [];
       this.healthChecks = healthChecks || [];
       
+      // Verificar cambios en el estado de servicios
+      this.checkServiceChanges();
+      
       this.calculateResumen();
       this.generateServicesHistory();
       this.loadRecentIncidents();
@@ -377,6 +387,112 @@ export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
     this.showSettings = !this.showSettings;
     if (this.showSettings) {
       setTimeout(() => this.subscribeSettingsSavedOnce(), 100);
+    }
+  }
+
+  // ========================================
+  // SISTEMA DE NOTIFICACIONES
+  // ========================================
+  toggleNotifications() {
+    this.showNotifications = !this.showNotifications;
+  }
+
+  addNotification(title: string, message: string, severity: 'critical' | 'warning' | 'info', icon: string) {
+    const notification = {
+      id: ++this.notificationIdCounter,
+      title,
+      message,
+      severity,
+      icon,
+      timestamp: new Date()
+    };
+    
+    // Agregar al inicio de la lista
+    this.activeNotifications.unshift(notification);
+    
+    // Limitar a 50 notificaciones máximo
+    if (this.activeNotifications.length > 50) {
+      this.activeNotifications = this.activeNotifications.slice(0, 50);
+    }
+  }
+
+  dismissNotification(id: number) {
+    this.activeNotifications = this.activeNotifications.filter(n => n.id !== id);
+  }
+
+  clearAllNotifications() {
+    if (confirm('¿Limpiar todas las notificaciones?')) {
+      this.activeNotifications = [];
+    }
+  }
+
+  checkServiceChanges() {
+    // Si las notificaciones están desactivadas, solo actualizar estados sin crear notificaciones
+    if (!this.notificationsEnabled) {
+      this.services.forEach((service: any) => {
+        this.previousServiceStates.set(service._id, service.estado);
+      });
+      return;
+    }
+    
+    this.services.forEach((service: any) => {
+      const previousState = this.previousServiceStates.get(service._id);
+      const currentState = service.estado;
+      
+      // Si hay un cambio de estado
+      if (previousState && previousState !== currentState) {
+        const serviceName = service.nombre;
+        
+        // Servicio interrumpido
+        if (currentState === 'Interrumpido') {
+          this.addNotification(
+            '🚨 Servicio Interrumpido',
+            `${serviceName} ha dejado de funcionar`,
+            'critical',
+            '❌'
+          );
+        }
+        // Servicio impactado
+        else if (currentState === 'Impactado') {
+          this.addNotification(
+            '⚠️ Servicio Impactado',
+            `${serviceName} está experimentando problemas`,
+            'warning',
+            '⚠️'
+          );
+        }
+        // Servicio degradado
+        else if (currentState === 'Degradado') {
+          this.addNotification(
+            '⚡ Servicio Degradado',
+            `${serviceName} tiene rendimiento reducido`,
+            'warning',
+            '⚡'
+          );
+        }
+        // Servicio recuperado
+        else if (currentState === 'Operando normalmente' && 
+                 (previousState === 'Interrumpido' || previousState === 'Impactado' || previousState === 'Degradado')) {
+          this.addNotification(
+            '✅ Servicio Recuperado',
+            `${serviceName} ha vuelto a la normalidad`,
+            'info',
+            '✅'
+          );
+        }
+      }
+      
+      // Actualizar estado anterior
+      this.previousServiceStates.set(service._id, currentState);
+    });
+  }
+
+  toggleNotificationsEnabled() {
+    this.notificationsEnabled = !this.notificationsEnabled;
+    
+    if (!this.notificationsEnabled) {
+      // Opcional: limpiar notificaciones existentes cuando se desactivan
+      // this.activeNotifications = [];
     }
   }
 
@@ -510,7 +626,6 @@ export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
     
     if (indexToRemove >= 0) {
       this.services.splice(indexToRemove, 1);
-      this.cdr.detectChanges();
     }
     
     this.apiService.deleteService(id).subscribe({
@@ -520,7 +635,6 @@ export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
         // Mostrar notificación de éxito
         this.successMessage = `✅ "${serviceName}" eliminado exitosamente`;
         this.showSuccessNotification = true;
-        this.cdr.detectChanges();
         
         // Auto-ocultar la notificación después de 4 segundos
         if (this.successNotificationTimeout) {
@@ -531,11 +645,8 @@ export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
           this.cdr.detectChanges();
         }, 4000);
         
-        // Recargar datos desde el servidor
-        setTimeout(() => {
-          this.loadData();
-          this.cdr.detectChanges();
-        }, 300);
+        // Recargar datos desde el servidor inmediatamente
+        this.loadData();
       },
       error: (err) => {
         this.deleting = false;
@@ -655,22 +766,22 @@ export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
     // Encontrar y remover inmediatamente de la lista
     const indexToRemove = this.incidents.findIndex((i: any) => i._id === this.selectedIncidentToDelete);
     const removedIncident = indexToRemove >= 0 ? this.incidents[indexToRemove] : null;
+    const incidentName = removedIncident?.titulo || 'Incidente';
     
     if (indexToRemove >= 0) {
       this.incidents.splice(indexToRemove, 1);
-      this.cdr.detectChanges();
     }
     
     this.apiService.deleteIncident(this.selectedIncidentToDelete).subscribe({
       next: (res) => {
         this.deletingIncident = false;
+        // Cerrar modal inmediatamente
         this.showDeleteIncident = false;
         this.selectedIncidentToDelete = '';
         
         // Mostrar notificación de éxito
-        this.successMessage = '✅ Incidente eliminado exitosamente';
+        this.successMessage = `✅ "${incidentName}" eliminado exitosamente`;
         this.showSuccessNotification = true;
-        this.cdr.detectChanges();
         
         // Auto-ocultar la notificación después de 4 segundos
         if (this.successNotificationTimeout) {
@@ -681,11 +792,8 @@ export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
           this.cdr.detectChanges();
         }, 4000);
         
-        // Recargar datos automáticamente
-        setTimeout(() => {
-          this.loadData();
-          this.cdr.detectChanges();
-        }, 300);
+        // Recargar datos inmediatamente
+        this.loadData();
       },
       error: (err) => {
         console.error('Error eliminando incidente', err);
@@ -768,6 +876,17 @@ export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
         alert('❌ Error al eliminar todos los incidentes. Intenta de nuevo.');
       }
     });
+  }
+
+  onMaintenanceSaved() {
+    // Cuando se guarda un mantenimiento, recargar datos y recalcular estadísticas del calendario
+    this.loadData();
+    
+    // Dar un pequeño delay para que el componente hijo actualice sus datos
+    setTimeout(() => {
+      this.calculateMonthlyStatistics();
+      this.cdr.detectChanges();
+    }, 200);
   }
 
   loadRecentIncidents() {

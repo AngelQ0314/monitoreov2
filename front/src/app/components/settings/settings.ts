@@ -77,7 +77,8 @@ export class SettingsComponent implements OnInit {
 
   toggleDeletedServices() {
     this.showDeletedServices = !this.showDeletedServices;
-    if (this.showDeletedServices && this.deletedServices.length === 0) {
+    // Siempre recargar cuando se abre para asegurar datos actualizados
+    if (this.showDeletedServices) {
       this.loadDeletedServices();
     }
   }
@@ -86,6 +87,8 @@ export class SettingsComponent implements OnInit {
     this.api.getDeletedServices().subscribe(
       data => {
         this.deletedServices = data || [];
+        // Forzar detección de cambios para reflejar inmediatamente
+        try { this.onSaved.emit(); } catch(e) {}
       },
       error => {
         console.error('Error loading deleted services:', error);
@@ -97,14 +100,24 @@ export class SettingsComponent implements OnInit {
   restoreService(id: string) {
     if (!confirm('¿Restaurar este servicio?')) return;
     this.restoring = true;
+    
+    // Eliminar optimísticamente de la lista
+    const index = this.deletedServices.findIndex(s => s._id === id);
+    if (index >= 0) {
+      this.deletedServices.splice(index, 1);
+    }
+    
     this.api.restoreService(id).subscribe({
       next: () => {
         this.restoring = false;
+        // Recargar para asegurar sincronización
         this.loadDeletedServices();
       },
       error: (err) => {
         this.restoring = false;
         console.error('Error restoring service:', err);
+        // Recargar en caso de error para restaurar el estado correcto
+        this.loadDeletedServices();
       }
     });
   }
@@ -112,14 +125,28 @@ export class SettingsComponent implements OnInit {
   permanentlyDeleteService(id: string) {
     if (!confirm('¿Eliminar permanentemente este servicio? Esta acción no se puede deshacer.')) return;
     this.deleting = true;
+    
+    // Eliminar optimísticamente de la lista
+    const index = this.deletedServices.findIndex(s => s._id === id);
+    const serviceName = index >= 0 ? this.deletedServices[index].nombre : 'Servicio';
+    if (index >= 0) {
+      this.deletedServices.splice(index, 1);
+    }
+    
     this.api.deleteServiceHard(id).subscribe({
       next: () => {
         this.deleting = false;
+        this.message = `"${serviceName}" eliminado permanentemente`;
+        setTimeout(() => this.message = '', 3000);
+        // Recargar para asegurar sincronización
         this.loadDeletedServices();
       },
       error: (err) => {
         this.deleting = false;
         console.error('Error deleting service:', err);
+        alert('❌ Error al eliminar el servicio permanentemente');
+        // Recargar en caso de error para restaurar el estado correcto
+        this.loadDeletedServices();
       }
     });
   }
@@ -133,16 +160,25 @@ export class SettingsComponent implements OnInit {
     if (!confirm('¿Realmente deseas eliminar PERMANENTEMENTE todos estos servicios? Esta es tu última oportunidad para cancelar.')) return;
     
     this.deleting = true;
+    const count = this.deletedServices.length;
+    
+    // Limpiar lista inmediatamente para feedback visual
+    this.deletedServices = [];
+    
     this.api.deleteAllDeletedServices().subscribe({
       next: (result: any) => {
         this.deleting = false;
-        alert(`✅ ${result.deleted || 0} servicios han sido eliminados permanentemente`);
+        this.message = `✅ ${result.deleted || count} servicios eliminados permanentemente`;
+        setTimeout(() => this.message = '', 3000);
+        // Recargar para asegurar sincronización
         this.loadDeletedServices();
       },
       error: (err) => {
         this.deleting = false;
         console.error('Error deleting all deleted services:', err);
         alert('❌ Error al eliminar los servicios. Intenta de nuevo.');
+        // Recargar en caso de error
+        this.loadDeletedServices();
       }
     });
   }
