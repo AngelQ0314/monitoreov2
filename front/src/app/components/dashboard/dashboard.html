@@ -17,6 +17,57 @@
     </div>
   </header>
 
+  <!-- PANEL DE NOTIFICACIONES -->
+  <div class="notifications-panel" [class.open]="showNotifications">
+    <div class="notifications-header">
+      <h3>🔔 Notificaciones Activas</h3>
+      <button class="close-btn" (click)="toggleNotifications()">✕</button>
+    </div>
+
+    <!-- Toggle de notificaciones -->
+    <div class="notifications-toggle">
+      <div class="toggle-info">
+        <span class="toggle-label">Notificaciones automáticas</span>
+        <span class="toggle-description">Alertas cuando cambia el estado de servicios</span>
+      </div>
+      <label class="switch">
+        <input type="checkbox" [(ngModel)]="notificationsEnabled" (change)="toggleNotificationsEnabled()">
+        <span class="slider"></span>
+      </label>
+    </div>
+    
+    <div class="notifications-content">
+      <div *ngIf="activeNotifications.length === 0" class="no-notifications">
+        <p>✅ No hay alertas activas</p>
+        <span>Todos los servicios están funcionando correctamente</span>
+      </div>
+
+      <div class="notification-item" *ngFor="let notif of activeNotifications" 
+           [ngClass]="{
+             'critical': notif.severity === 'critical',
+             'warning': notif.severity === 'warning',
+             'info': notif.severity === 'info'
+           }">
+        <div class="notif-icon">{{ notif.icon }}</div>
+        <div class="notif-content">
+          <div class="notif-title">{{ notif.title }}</div>
+          <div class="notif-message">{{ notif.message }}</div>
+          <div class="notif-time">{{ notif.timestamp | date:'short' }}</div>
+        </div>
+        <button class="dismiss-btn" (click)="dismissNotification(notif.id)" title="Descartar">✕</button>
+      </div>
+    </div>
+
+    <div class="notifications-footer">
+      <button class="btn-secondary" (click)="clearAllNotifications()" *ngIf="activeNotifications.length > 0">
+        🗑️ Limpiar todas
+      </button>
+    </div>
+  </div>
+
+  <!-- Overlay para cerrar panel -->
+  <div class="notifications-overlay" *ngIf="showNotifications" (click)="toggleNotifications()"></div>
+
   <section *ngIf="showSettings" class="settings-modal-overlay" (click)="toggleSettings()">
     <div class="settings-modal" (click)="$event.stopPropagation()">
       <div class="modal-header">
@@ -24,7 +75,7 @@
         <button class="modal-close" (click)="toggleSettings()">✕</button>
       </div>
       <div class="modal-content">
-        <app-settings></app-settings>
+        <app-settings (onSaved)="loadData()"></app-settings>
       </div>
     </div>
   </section>
@@ -79,7 +130,10 @@
 
   <!-- BOTONES DE ACCIÓN -->
   <div class="action-buttons-row">
-    <button class="btn-secondary">Notificaciones activas</button>
+    <button class="btn-secondary" (click)="toggleNotifications()" style="position: relative;">
+      Notificaciones activas
+      <span *ngIf="activeNotifications.length > 0" class="notification-badge">{{ activeNotifications.length }}</span>
+    </button>
     <button class="btn-secondary settings-btn" (click)="toggleSettings()">
       <span class="settings-icon">⚙️</span>
       <span class="btn-text">Ajustes</span>
@@ -214,9 +268,6 @@
     <div class="incidents-list">
       <div class="incidents-list-header">
         <h3 class="section-title" style="margin-top: 32px;">Incidentes Recientes</h3>
-        <button class="btn-danger" (click)="deleteAllIncidents()" *ngIf="incidents && incidents.length > 0">
-          🗑️ Eliminar todos
-        </button>
       </div>
       <div
         class="incident-card"
@@ -251,7 +302,7 @@
   <section class="maintenance-section" *ngIf="activeTab === 'mantenimiento'">
     <h2 class="section-title">Mantenimiento</h2>
     <div class="maintenance-area">
-      <app-maintenance (onSaved)="loadData()"></app-maintenance>
+      <app-maintenance (onSaved)="onMaintenanceSaved()"></app-maintenance>
     </div>
   </section>
 
