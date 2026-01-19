@@ -1,4 +1,37 @@
 <div class="maintenance-panel">
+  <!-- NOTIFICACIÓN DE ÉXITO -->
+  <div *ngIf="showSuccessNotification" class="success-notification">
+    {{ successMessage }}
+  </div>
+
+  <!-- ALERTA PERSONALIZADA -->
+  <div *ngIf="showCustomAlert" class="custom-alert-overlay" (click)="closeAlert()">
+    <div class="custom-alert" [ngClass]="'alert-' + customAlertType" (click)="$event.stopPropagation()">
+      <div class="alert-icon">{{ customAlertIcon }}</div>
+      <div class="alert-content">
+        <p class="alert-message">{{ customAlertMessage }}</p>
+      </div>
+      <button class="alert-close-btn" (click)="closeAlert()">Aceptar</button>
+    </div>
+  </div>
+
+  <!-- CONFIRMACIÓN PERSONALIZADA -->
+  <div *ngIf="showCustomConfirm" class="custom-confirm-overlay" (click)="closeConfirm()">
+    <div class="custom-confirm" (click)="$event.stopPropagation()">
+      <div class="confirm-header">
+        <h3 class="confirm-title">{{ customConfirmTitle }}</h3>
+        <button class="modal-close" (click)="closeConfirm()">✕</button>
+      </div>
+      <div class="confirm-content">
+        <p class="confirm-message">{{ customConfirmMessage }}</p>
+      </div>
+      <div class="confirm-actions">
+        <button class="btn-secondary" (click)="closeConfirm()">Cancelar</button>
+        <button class="btn-primary" (click)="confirmAction()">Aceptar</button>
+      </div>
+    </div>
+  </div>
+
   <div class="maintenance-header">
     <h3>Mantenimientos programados</h3>
     <div class="maintenance-header-actions">
@@ -11,25 +44,7 @@
     </div>
   </div>
 
-  <!-- Modal de alarma de finalización -->
-  <section *ngIf="showAlarmModal" class="alarm-modal-overlay">
-    <div class="alarm-modal">
-      <div class="alarm-icon">⏰</div>
-      <h2>¡Mantenimiento Finalizado!</h2>
-      <div class="alarm-content">
-        <p class="alarm-title">{{ finishedMaintenance?.titulo }}</p>
-        <p class="alarm-service">Servicio: <strong>{{ finishedMaintenance?.serviceName }}</strong></p>
-        <p class="alarm-message">El tiempo programado para este mantenimiento ha terminado.</p>
-        <div class="alarm-time">
-          Finalizó: {{ finishedMaintenance?.fechaFin | date:'short' }}
-        </div>
-      </div>
-      <div class="alarm-actions">
-        <button class="btn-primary" (click)="finish(finishedMaintenance._id)">✓ Marcar como finalizado</button>
-        <button class="btn-secondary" (click)="closeAlarm()">✕ Cerrar alarma</button>
-      </div>
-    </div>
-  </section>
+  <!-- Modal de alarma eliminado - ahora se usa el panel de notificaciones del dashboard -->
 
   <div class="maintenance-list">
     <div *ngFor="let m of maintenances" class="maintenance-card" [class.deleting]="deletingMaintenanceIds.has(m._id)">

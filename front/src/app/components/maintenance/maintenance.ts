@@ -20,6 +20,23 @@ export class MaintenanceComponent implements OnInit, OnDestroy {
   checkedMaintenances = new Set<string>(); // Para evitar duplicar alarmas
   deletingMaintenanceIds = new Set<string>(); // Para rastrear qué mantenimientos se están eliminando
   
+  // Sistema de alertas personalizadas
+  showCustomAlert = false;
+  customAlertMessage = '';
+  customAlertType: 'info' | 'warning' | 'error' | 'success' = 'info';
+  customAlertIcon = '';
+  
+  // Sistema de confirmación personalizada
+  showCustomConfirm = false;
+  customConfirmMessage = '';
+  customConfirmTitle = '';
+  customConfirmCallback: (() => void) | null = null;
+  
+  // Notificación de éxito
+  showSuccessNotification = false;
+  successMessage = '';
+  successNotificationTimeout: any = null;
+  
   newMaintenance: any = {
     serviceId: '',
     titulo: '',
@@ -31,6 +48,7 @@ export class MaintenanceComponent implements OnInit, OnDestroy {
   };
 
   @Output() onSaved = new EventEmitter<void>();
+  @Output() onMaintenanceFinished = new EventEmitter<any>();
 
   constructor(public cdr: ChangeDetectorRef, private api: ApiService) {}
 
@@ -111,17 +129,17 @@ export class MaintenanceComponent implements OnInit, OnDestroy {
     
     // Validaciones
     if (!this.newMaintenance.serviceId) {
-      alert('⚠️ Selecciona un servicio para el mantenimiento');
+      this.showAlert('Selecciona un servicio para el mantenimiento', 'warning');
       return;
     }
     
     if (!this.newMaintenance.titulo) {
-      alert('⚠️ El título del mantenimiento es obligatorio');
+      this.showAlert('El título del mantenimiento es obligatorio', 'warning');
       return;
     }
     
     if (!this.newMaintenance.fechaInicio) {
-      alert('⚠️ La fecha de inicio es obligatoria');
+      this.showAlert('La fecha de inicio es obligatoria', 'warning');
       return;
     }
     
@@ -174,7 +192,15 @@ export class MaintenanceComponent implements OnInit, OnDestroy {
   }
 
   remove(id: string) {
-    if (!confirm('Eliminar mantenimiento?')) return;
+    const maint = this.maintenances.find(m => m._id === id);
+    const maintName = maint?.titulo || 'este mantenimiento';
+    
+    this.showConfirm('🗑️ Eliminar Mantenimiento', `¿Estás seguro de que deseas eliminar "${maintName}"?`, () => {
+      this.executeRemove(id);
+    });
+  }
+  
+  executeRemove(id: string) {
     
     // Marcar como eliminando inmediatamente para feedback visual
     this.deletingMaintenanceIds.add(id);
@@ -201,25 +227,25 @@ export class MaintenanceComponent implements OnInit, OnDestroy {
         if (removedMaintenance && indexToRemove >= 0) {
           this.maintenances.splice(indexToRemove, 0, removedMaintenance);
         }
-        alert('❌ Error al eliminar el mantenimiento. Intenta de nuevo.');
+        this.showAlert('Error al eliminar el mantenimiento. Intenta de nuevo.', 'error');
       }
     });
   }
 
   showMaintenanceFinishedAlarm(maintenance: any) {
-    this.finishedMaintenance = maintenance;
-    this.showAlarmModal = true;
+    // Emitir evento al dashboard para agregar notificación
+    this.onMaintenanceFinished.emit({
+      id: maintenance._id,
+      titulo: maintenance.titulo,
+      serviceName: maintenance.serviceName,
+      fechaFin: maintenance.fechaFin
+    });
     
     // Reproducir sonido de alarma
     this.playAlarmSound();
     
     // Solicitar notificación del navegador si está permitido
     this.requestBrowserNotification(maintenance);
-    
-    // Auto-cerrar el modal después de 10 segundos
-    setTimeout(() => {
-      this.closeAlarm();
-    }, 10000);
   }
 
   closeAlarm() {
@@ -286,52 +312,111 @@ export class MaintenanceComponent implements OnInit, OnDestroy {
     const activeMaintenances = this.maintenances.filter((m: any) => m.estado !== 'Finalizado');
     
     if (activeMaintenances.length === 0) {
-      alert('No hay mantenimientos activos para finalizar');
+      this.showAlert('No hay mantenimientos activos para finalizar', 'info');
       return;
     }
 
-    if (!confirm(`¿Finalizar todos los mantenimientos activos? (${activeMaintenances.length} mantenimiento${activeMaintenances.length === 1 ? '' : 's'})`)) {
-      return;
-    }
-
+    const message = `¿Finalizar todos los mantenimientos activos?\n\n${activeMaintenances.length} mantenimiento${activeMaintenances.length === 1 ? '' : 's'} será${activeMaintenances.length === 1 ? 'á' : 'án'} marcado${activeMaintenances.length === 1 ? '' : 's'} como finalizado${activeMaintenances.length === 1 ? '' : 's'}.`;
+    
+    this.showConfirm('✅ Finalizar Todo', message, () => {
+      this.executeFinishAll();
+    });
+  }
+  
+  executeFinishAll() {
     this.api.finishAllMaintenances().subscribe({
       next: (result: any) => {
-        alert(`✓ Se finalizaron ${result.finalizados} de ${result.total} mantenimientos`);
+        this.showSuccess(`✅ Se finalizaron ${result.finalizados} de ${result.total} mantenimientos`);
         this.load();
         this.onSaved.emit();
       },
       error: (err) => {
         console.error('Error finalizando todos los mantenimientos', err);
-        alert('❌ Error al finalizar todos los mantenimientos. Intenta de nuevo.');
+        this.showAlert('Error al finalizar todos los mantenimientos. Intenta de nuevo.', 'error');
       }
     });
   }
 
   removeAll() {
     if (this.maintenances.length === 0) {
-      alert('No hay mantenimientos para eliminar');
+      this.showAlert('No hay mantenimientos para eliminar', 'info');
       return;
     }
 
-    if (!confirm(`¿Eliminar TODOS los mantenimientos? (${this.maintenances.length} mantenimiento${this.maintenances.length === 1 ? '' : 's'})`)) {
-      return;
-    }
-
-    if (!confirm('⚠️ ADVERTENCIA: Esta acción eliminará todos los mantenimientos. ¿Estás seguro?')) {
-      return;
-    }
-
+    const message = `Se eliminarán ${this.maintenances.length} mantenimiento${this.maintenances.length === 1 ? '' : 's'} de forma permanente.\n\nEsta acción no se puede deshacer.`;
+    
+    this.showConfirm('🗑️ Eliminar Todos los Mantenimientos', message, () => {
+      this.executeRemoveAll();
+    });
+  }
+  
+  executeRemoveAll() {
     this.api.deleteAllMaintenances().subscribe({
       next: (result: any) => {
-        alert(`✓ Se eliminaron ${result.eliminados} de ${result.total} mantenimientos`);
+        this.showSuccess(`✅ Se eliminaron ${result.eliminados} de ${result.total} mantenimientos`);
         this.maintenances = [];
         this.onSaved.emit();
       },
       error: (err) => {
         console.error('Error eliminando todos los mantenimientos', err);
-        alert('❌ Error al eliminar todos los mantenimientos. Intenta de nuevo.');
+        this.showAlert('Error al eliminar todos los mantenimientos. Intenta de nuevo.', 'error');
       }
     });
+  }
+
+  // ========================================
+  // SISTEMA DE ALERTAS PERSONALIZADAS
+  // ========================================
+  showAlert(message: string, type: 'info' | 'warning' | 'error' | 'success' = 'info') {
+    this.customAlertMessage = message;
+    this.customAlertType = type;
+    
+    // Asignar icono según el tipo
+    const icons = {
+      info: 'ℹ️',
+      warning: '⚠️',
+      error: '❌',
+      success: '✅'
+    };
+    this.customAlertIcon = icons[type];
+    
+    this.showCustomAlert = true;
+  }
+  
+  closeAlert() {
+    this.showCustomAlert = false;
+  }
+  
+  showConfirm(title: string, message: string, callback: () => void) {
+    this.customConfirmTitle = title;
+    this.customConfirmMessage = message;
+    this.customConfirmCallback = callback;
+    this.showCustomConfirm = true;
+  }
+  
+  confirmAction() {
+    if (this.customConfirmCallback) {
+      this.customConfirmCallback();
+    }
+    this.closeConfirm();
+  }
+  
+  closeConfirm() {
+    this.showCustomConfirm = false;
+    this.customConfirmCallback = null;
+  }
+  
+  showSuccess(message: string) {
+    this.successMessage = message;
+    this.showSuccessNotification = true;
+    
+    if (this.successNotificationTimeout) {
+      clearTimeout(this.successNotificationTimeout);
+    }
+    this.successNotificationTimeout = setTimeout(() => {
+      this.showSuccessNotification = false;
+      this.cdr.detectChanges();
+    }, 4000);
   }
 
   trackByServiceId(index: number, service: any): any {

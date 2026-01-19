@@ -1,4 +1,25 @@
 <div class="settings-panel">
+  <!-- Modal de Alerta Personalizada -->
+  <div class="custom-alert-overlay" *ngIf="showCustomAlert" (click)="closeAlert()">
+    <div class="custom-alert-modal" [class]="'alert-' + customAlertType" (click)="$event.stopPropagation()">
+      <div class="custom-alert-icon">{{ customAlertIcon }}</div>
+      <div class="custom-alert-message">{{ customAlertMessage }}</div>
+      <button class="custom-alert-btn" (click)="closeAlert()">Aceptar</button>
+    </div>
+  </div>
+
+  <!-- Modal de Confirmación Personalizada -->
+  <div class="custom-confirm-overlay" *ngIf="showCustomConfirm" (click)="closeConfirm()">
+    <div class="custom-confirm-modal" (click)="$event.stopPropagation()">
+      <div class="custom-confirm-title">{{ customConfirmTitle }}</div>
+      <div class="custom-confirm-message">{{ customConfirmMessage }}</div>
+      <div class="custom-confirm-buttons">
+        <button class="confirm-btn-cancel" (click)="closeConfirm()">Cancelar</button>
+        <button class="confirm-btn-ok" (click)="confirmAction()">Confirmar</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Sección de configuración -->
   <div *ngIf="!showDeletedServices" class="settings-content">
     <div class="settings-section">
