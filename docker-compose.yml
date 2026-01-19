@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  # Backend API - Producción
+  backend:
+    build:
+      context: ./back
+      dockerfile: Dockerfile
+    container_name: monitoreo-backend
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env.production
+    restart: unless-stopped
+    networks:
+      - monitoreo-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Frontend Angular
+  frontend:
+    build:
+      context: ./front
+      dockerfile: Dockerfile
+    container_name: monitoreo-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - monitoreo-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:80 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  monitoreo-network:
+    driver: bridge
