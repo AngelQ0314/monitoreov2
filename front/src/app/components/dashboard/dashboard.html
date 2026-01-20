@@ -111,10 +111,154 @@
         <button class="modal-close" (click)="toggleSettings()">✕</button>
       </div>
       <div class="modal-content">
-        <app-settings (onSaved)="loadData()"></app-settings>
+        <app-settings 
+          (onSaved)="loadData()" 
+          (onCreateService)="toggleSettings(); toggleCreateService()"
+          (onEditService)="openEditFromSettings()"
+          (onDeleteService)="openDeleteFromSettings()">
+        </app-settings>
       </div>
     </div>
   </section>
+
+  <!-- MODAL SELECCIONAR Y EDITAR SERVICIO -->
+  <section *ngIf="showEditServiceModal" class="settings-modal-overlay" (click)="toggleEditServiceModal()">
+    <div class="settings-modal edit-service-modal" [class.edit-service-modal-expanded]="editingService" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>✏️ Editar Servicio</h2>
+        <button class="modal-close" (click)="toggleEditServiceModal()">✕</button>
+      </div>
+      <div class="modal-content">
+        <!-- Selector de servicio -->
+        <div class="edit-service-selector">
+          <label class="selector-label">Selecciona el servicio a editar:</label>
+          <select [(ngModel)]="selectedServiceToEdit" (change)="onServiceSelectChange()" class="service-select">
+            <option value="">-- Seleccionar servicio --</option>
+            <option *ngFor="let s of services" [value]="s._id" [hidden]="s.activo === false">
+              {{ s.nombre }} - {{ s.estado }}
+            </option>
+          </select>
+        </div>
+
+        <!-- Formulario de edición (aparece cuando se selecciona un servicio) -->
+        <div *ngIf="editingService" class="edit-service-form">
+          <div class="form-row">
+            <label>Nombre</label>
+            <input [(ngModel)]="editingService.nombre" placeholder="Nombre del servicio" />
+          </div>
+
+          <div class="form-row">
+            <label>Descripción</label>
+            <textarea [(ngModel)]="editingService.descripcion" placeholder="Descripción del servicio"></textarea>
+          </div>
+
+          <div class="form-row">
+            <label>Cadena</label>
+            <input [(ngModel)]="editingService.clasificacion.cadena" placeholder="Ej: KFC, AMERICAN" />
+          </div>
+
+          <div class="form-row">
+            <label>Restaurante</label>
+            <input [(ngModel)]="editingService.clasificacion.restaurante" placeholder="Ej: G008, K001" />
+          </div>
+
+          <div class="form-row">
+            <label>URL</label>
+            <input [(ngModel)]="editingService.endpoint.url" placeholder="https://example.com/health" />
+          </div>
+
+          <div class="form-row">
+            <label>Método HTTP</label>
+            <select [(ngModel)]="editingService.endpoint.metodo">
+              <option value="GET">GET</option>
+              <option value="POST">POST</option>
+              <option value="PUT">PUT</option>
+              <option value="PATCH">PATCH</option>
+              <option value="DELETE">DELETE</option>
+              <option value="HEAD">HEAD</option>
+            </select>
+          </div>
+
+          <div class="form-row">
+            <label>Importancia</label>
+            <select [(ngModel)]="editingService.importancia">
+              <option value="alta">Alta</option>
+              <option value="media">Media</option>
+              <option value="baja">Baja</option>
+            </select>
+          </div>
+
+          <div class="form-row checkbox-row">
+            <input type="checkbox" id="modalManualImportancia" [(ngModel)]="editingService.manualImportanciaOverride" />
+            <label for="modalManualImportancia" style="font-size: 13px;" title="Evita que el sistema aumente automáticamente la importancia cuando el servicio tenga problemas">
+              🔒 Bloquear escalamiento automático de importancia
+            </label>
+          </div>
+          <div *ngIf="editingService.manualImportanciaOverride" class="info-box">
+            ℹ️ El sistema no modificará automáticamente la importancia de este servicio, incluso si está interrumpido o impactado.
+          </div>
+
+          <div class="form-row checkbox-row">
+            <input type="checkbox" id="modalActivo" [(ngModel)]="editingService.activo" />
+            <label for="modalActivo">Activo</label>
+          </div>
+        </div>
+
+        <!-- Acciones -->
+        <div class="edit-modal-actions">
+          <button class="btn-secondary" (click)="toggleEditServiceModal()">Cancelar</button>
+          <button class="btn-primary" *ngIf="editingService" (click)="saveEditFromModal()" [disabled]="savingEdit">
+            {{ savingEdit ? '💾 Guardando...' : '✓ Guardar cambios' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- MODAL ELIMINAR SERVICIO -->
+  <section *ngIf="showDeleteServiceModal" class="settings-modal-overlay" (click)="toggleDeleteServiceModal()">
+    <div class="settings-modal delete-service-modal" (click)="$event.stopPropagation()">
+      <div class="modal-header modal-header-danger">
+        <h2>🗑️ Eliminar Servicio</h2>
+        <button class="modal-close" (click)="toggleDeleteServiceModal()">✕</button>
+      </div>
+      <div class="modal-content">
+        <div class="delete-service-selector">
+          <label class="selector-label">Selecciona el servicio a eliminar:</label>
+          <select [(ngModel)]="selectedServiceToDelete" class="service-select">
+            <option value="">-- Seleccionar servicio --</option>
+            <option *ngFor="let s of services" [value]="s._id" [hidden]="s.activo === false">
+              {{ s.nombre }} - {{ s.estado }}
+            </option>
+          </select>
+
+          <div *ngIf="selectedServiceToDelete" class="delete-warning">
+            <span class="warning-icon">⚠️</span>
+            <p>El servicio será marcado como eliminado. Podrás recuperarlo desde "Ver servicios eliminados" en Ajustes.</p>
+          </div>
+        </div>
+
+        <div class="edit-modal-actions">
+          <button class="btn-secondary" (click)="toggleDeleteServiceModal()">Cancelar</button>
+          <button class="btn-danger" (click)="deleteServiceFromModal()" [disabled]="!selectedServiceToDelete || deleting">
+            {{ deleting ? '🗑️ Eliminando...' : '🗑️ Eliminar servicio' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- BOTONES DE ACCIÓN -->
+  <div class="action-buttons-row action-buttons-right">
+    <button class="btn-secondary" (click)="toggleNotifications()" style="position: relative;">
+      Notificaciones activas
+      <span *ngIf="activeNotifications.length > 0" class="notification-badge">{{ activeNotifications.length }}</span>
+    </button>
+    <button class="btn-secondary settings-btn" (click)="toggleSettings()">
+      <span class="settings-icon">⚙️</span>
+      <span class="btn-text">Ajustes</span>
+    </button>
+  </div>
 
   <!-- STATS -->
   <section class="stats-grid">
@@ -164,27 +308,189 @@
     </div>
   </section>
 
-  <!-- BOTONES DE ACCIÓN -->
-  <div class="action-buttons-row">
-    <button class="btn-secondary" (click)="toggleNotifications()" style="position: relative;">
-      Notificaciones activas
-      <span *ngIf="activeNotifications.length > 0" class="notification-badge">{{ activeNotifications.length }}</span>
-    </button>
-    <button class="btn-secondary settings-btn" (click)="toggleSettings()">
-      <span class="settings-icon">⚙️</span>
-      <span class="btn-text">Ajustes</span>
-    </button>
-    <button class="btn-primary" (click)="toggleCreateService()">Crear servicio</button>
-  </div>
-
   <!-- TABS (Sin botón Métricas) -->
   <nav class="tabs-nav">
     <button class="tab-button" [class.active]="activeTab === 'actual'" (click)="setActiveTab('actual')">Estado Actual</button>
+    <button class="tab-button" [class.active]="activeTab === 'historial'" (click)="setActiveTab('historial')">Historial</button>
     <button class="tab-button" [class.active]="activeTab === 'tendencias'" (click)="setActiveTab('tendencias')">Tendencias</button>
     <button class="tab-button" [class.active]="activeTab === 'mantenimiento'" (click)="setActiveTab('mantenimiento')">Mantenimiento</button>
     <button class="tab-button" [class.active]="activeTab === 'calendario'" (click)="setActiveTab('calendario')">Calendario</button>
     <button class="tab-button" [class.active]="activeTab === 'incidentes'" (click)="setActiveTab('incidentes')">Incidentes</button>
   </nav>
+
+  <!-- HISTORIAL DE ESTADOS -->
+  <section *ngIf="activeTab === 'historial'" class="history-section">
+    <div class="history-card">
+      <div class="history-header">
+        <h2 class="section-title">📋 Historial de Health Checks</h2>
+        <p class="history-subtitle">Últimas verificaciones de estado de los servicios, ordenados por prioridad</p>
+      </div>
+
+      <!-- Filtros del Historial -->
+      <div class="filters-bar checks-filters">
+        <div class="filters-row">
+          <div class="filter-item">
+            <label>Desde</label>
+            <input type="date" [(ngModel)]="filtroHistorialDesde" />
+          </div>
+          <div class="filter-item">
+            <label>Hasta</label>
+            <input type="date" [(ngModel)]="filtroHistorialHasta" />
+          </div>
+          <div class="filter-item">
+            <label>Estado</label>
+            <select [(ngModel)]="filtroHistorialEstado">
+              <option value="">Todos</option>
+              <option *ngFor="let e of estados" [value]="e">{{ e }}</option>
+            </select>
+          </div>
+          <div class="filter-item">
+            <label>Importancia</label>
+            <select [(ngModel)]="filtroHistorialImportancia">
+              <option value="">Todas</option>
+              <option value="alta">Alta</option>
+              <option value="media">Media</option>
+              <option value="baja">Baja</option>
+            </select>
+          </div>
+          <div class="filter-item">
+            <label>Cadena</label>
+            <input list="cadenasList" [(ngModel)]="filtroHistorialCadena" placeholder="Filtrar..." />
+          </div>
+          <div class="filter-item">
+            <label>Restaurante</label>
+            <input list="restaurantesList" [(ngModel)]="filtroHistorialRestaurante" placeholder="Filtrar..." />
+          </div>
+          <div class="filter-item">
+            <label>Límite</label>
+            <select [(ngModel)]="filtroHistorialLimite">
+              <option [value]="50">50</option>
+              <option [value]="100">100</option>
+              <option [value]="500">500</option>
+              <option [value]="1000">1000</option>
+              <option [value]="5000">5000</option>
+              <option [value]="0">Todos</option>
+            </select>
+          </div>
+        </div>
+        <div class="filter-actions">
+          <button class="btn-secondary" (click)="limpiarFiltrosHistorial()">Limpiar</button>
+          <button class="btn-primary" (click)="aplicarFiltrosHistorial()">Filtrar</button>
+        </div>
+      </div>
+      
+      <div class="history-legend">
+        <span class="legend-item"><span class="legend-color legend-interrupcion"></span> Interrupción</span>
+        <span class="legend-item"><span class="legend-color legend-problemas"></span> Impactado/Degradado</span>
+        <span class="legend-item"><span class="legend-color legend-operando"></span> Operando</span>
+      </div>
+
+      <!-- Sección Interrumpido -->
+      <div class="history-status-section" *ngIf="historyByStatus.interrumpido.length > 0">
+        <h3 class="history-status-title status-interrumpido">🔴 Interrumpido</h3>
+        <div class="health-list history-health-list">
+          <div class="health-card down" *ngFor="let check of historyByStatus.interrumpido">
+            <div class="health-header">
+              <div class="health-title">
+                <span class="health-service">{{ getServiceNameById(check.serviceId) }}</span>
+                <span class="health-badge">{{ check.estado }}</span>
+                <span *ngIf="check.importancia" class="health-importance">⚑ {{ check.importancia }}</span>
+              </div>
+            </div>
+            <div class="health-meta" *ngIf="check.cadena || check.restaurante">
+              <span *ngIf="check.cadena">{{ check.cadena }}</span>
+              <span *ngIf="check.restaurante">{{ check.restaurante }}</span>
+            </div>
+            <div class="health-details">
+              <span *ngIf="check.tiempoRespuestaMs" class="detail-item">⏱ {{ check.tiempoRespuestaMs }} ms</span>
+              <span *ngIf="check.codigoRespuesta" class="detail-item">🔢 {{ check.codigoRespuesta }}</span>
+              <span class="detail-item">🕒 {{ check.fechaRevision || check.fecha | date:'short' }}</span>
+            </div>
+            <div class="health-message" *ngIf="check.mensaje">{{ check.mensaje }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sección Impactado -->
+      <div class="history-status-section" *ngIf="historyByStatus.impactado.length > 0">
+        <h3 class="history-status-title status-impactado">🟠 Impactado</h3>
+        <div class="health-list history-health-list">
+          <div class="health-card impact" *ngFor="let check of historyByStatus.impactado">
+            <div class="health-header">
+              <div class="health-title">
+                <span class="health-service">{{ getServiceNameById(check.serviceId) }}</span>
+                <span class="health-badge">{{ check.estado }}</span>
+                <span *ngIf="check.importancia" class="health-importance">⚑ {{ check.importancia }}</span>
+              </div>
+            </div>
+            <div class="health-meta" *ngIf="check.cadena || check.restaurante">
+              <span *ngIf="check.cadena">{{ check.cadena }}</span>
+              <span *ngIf="check.restaurante">{{ check.restaurante }}</span>
+            </div>
+            <div class="health-details">
+              <span *ngIf="check.tiempoRespuestaMs" class="detail-item">⏱ {{ check.tiempoRespuestaMs }} ms</span>
+              <span *ngIf="check.codigoRespuesta" class="detail-item">🔢 {{ check.codigoRespuesta }}</span>
+              <span class="detail-item">🕒 {{ check.fechaRevision || check.fecha | date:'short' }}</span>
+            </div>
+            <div class="health-message" *ngIf="check.mensaje">{{ check.mensaje }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sección Degradado -->
+      <div class="history-status-section" *ngIf="historyByStatus.degradado.length > 0">
+        <h3 class="history-status-title status-degradado">🟡 Degradado</h3>
+        <div class="health-list history-health-list">
+          <div class="health-card degraded" *ngFor="let check of historyByStatus.degradado">
+            <div class="health-header">
+              <div class="health-title">
+                <span class="health-service">{{ getServiceNameById(check.serviceId) }}</span>
+                <span class="health-badge">{{ check.estado }}</span>
+                <span *ngIf="check.importancia" class="health-importance">⚑ {{ check.importancia }}</span>
+              </div>
+            </div>
+            <div class="health-meta" *ngIf="check.cadena || check.restaurante">
+              <span *ngIf="check.cadena">{{ check.cadena }}</span>
+              <span *ngIf="check.restaurante">{{ check.restaurante }}</span>
+            </div>
+            <div class="health-details">
+              <span *ngIf="check.tiempoRespuestaMs" class="detail-item">⏱ {{ check.tiempoRespuestaMs }} ms</span>
+              <span *ngIf="check.codigoRespuesta" class="detail-item">🔢 {{ check.codigoRespuesta }}</span>
+              <span class="detail-item">🕒 {{ check.fechaRevision || check.fecha | date:'short' }}</span>
+            </div>
+            <div class="health-message" *ngIf="check.mensaje">{{ check.mensaje }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sección Operando -->
+      <div class="history-status-section" *ngIf="historyByStatus.operando.length > 0">
+        <h3 class="history-status-title status-operando">🟢 Operando</h3>
+        <div class="health-list history-health-list">
+          <div class="health-card ok" *ngFor="let check of historyByStatus.operando">
+            <div class="health-header">
+              <div class="health-title">
+                <span class="health-service">{{ getServiceNameById(check.serviceId) }}</span>
+                <span class="health-badge">{{ check.estado }}</span>
+                <span *ngIf="check.importancia" class="health-importance">⚑ {{ check.importancia }}</span>
+              </div>
+            </div>
+            <div class="health-meta" *ngIf="check.cadena || check.restaurante">
+              <span *ngIf="check.cadena">{{ check.cadena }}</span>
+              <span *ngIf="check.restaurante">{{ check.restaurante }}</span>
+            </div>
+            <div class="health-details">
+              <span *ngIf="check.tiempoRespuestaMs" class="detail-item">⏱ {{ check.tiempoRespuestaMs }} ms</span>
+              <span *ngIf="check.codigoRespuesta" class="detail-item">🔢 {{ check.codigoRespuesta }}</span>
+              <span class="detail-item">🕒 {{ check.fechaRevision || check.fecha | date:'short' }}</span>
+            </div>
+            <div class="health-message" *ngIf="check.mensaje">{{ check.mensaje }}</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
 
   <!-- TENDENCIAS -->
   <section *ngIf="activeTab === 'tendencias'" class="trends-section">
@@ -631,20 +937,12 @@
           
           <div class="service-header">
             <div class="service-title">
-              <div *ngIf="editingServiceId !== service._id">
-                <span class="service-name">{{ service.nombre }}</span>
-              </div>
-
-              <div *ngIf="editingServiceId === service._id">
-                <input [(ngModel)]="editingService.nombre" />
-              </div>
+              <span class="service-name">{{ service.nombre }}</span>
 
               <span *ngIf="service.maintenanceMode" class="maintenance-badge">En mantenimiento</span>
               <span class="service-status">{{ service.estado }}</span>
               <span *ngIf="getLastHealthStatus(service._id)" class="health-check-badge">Últ. check: {{ getLastHealthStatus(service._id) }}</span>
             </div>
-
-            <!-- acciones movidas abajo para mejor layout -->
           </div>
 
           <div class="service-meta">
@@ -655,188 +953,10 @@
             <span *ngIf="service.version">🧬 v{{ service.version }}</span>
           </div>
 
-          <div class="service-actions" style="margin-top:8px; justify-content:flex-end;">
-            <button class="btn-secondary" *ngIf="editingServiceId !== service._id" (click)="startEdit(service)">Editar</button>
-            <button class="btn-secondary" *ngIf="editingServiceId !== service._id" (click)="deleteService(service._id)">Eliminar</button>
-            <button class="btn-primary" *ngIf="editingServiceId === service._id" (click)="saveEdit(service._id)" [disabled]="savingEdit">Guardar</button>
-            <button class="btn-secondary" *ngIf="editingServiceId === service._id" (click)="cancelEdit()">Cancelar</button>
-          </div>
-
-          <div *ngIf="editingServiceId !== service._id">
-            <p class="service-description" *ngIf="service.descripcion">{{ service.descripcion }}</p>
-          </div>
-
-          <div *ngIf="editingServiceId === service._id" class="form-grid" style="margin-top:8px;">
-            <div class="form-row">
-              <label>Descripción</label>
-              <textarea [(ngModel)]="editingService.descripcion"></textarea>
-            </div>
-
-            <div class="form-row">
-              <label>Cadena</label>
-              <input [(ngModel)]="editingService.clasificacion.cadena" />
-            </div>
-
-            <div class="form-row">
-              <label>Restaurante</label>
-              <input [(ngModel)]="editingService.clasificacion.restaurante" />
-            </div>
-
-            <div class="form-row">
-              <label>URL</label>
-              <input [(ngModel)]="editingService.endpoint.url" placeholder="https://example.com/health" />
-            </div>
-
-            <div class="form-row">
-              <label>Método HTTP</label>
-              <select [(ngModel)]="editingService.endpoint.metodo">
-                <option value="GET">GET</option>
-                <option value="POST">POST</option>
-                <option value="PUT">PUT</option>
-                <option value="PATCH">PATCH</option>
-                <option value="DELETE">DELETE</option>
-                <option value="HEAD">HEAD</option>
-              </select>
-            </div>
-
-            <div class="form-row">
-              <label>Importancia</label>
-              <select [(ngModel)]="editingService.importancia">
-                <option value="alta">Alta</option>
-                <option value="media">Media</option>
-                <option value="baja">Baja</option>
-              </select>
-            </div>
-
-            <div class="form-row checkbox-row">
-              <input type="checkbox" id="manualImportanciaOverride" [(ngModel)]="editingService.manualImportanciaOverride" />
-              <label for="manualImportanciaOverride" style="font-size: 13px;" title="Evita que el sistema aumente automáticamente la importancia cuando el servicio tenga problemas">
-                🔒 Bloquear escalamiento automático de importancia
-              </label>
-            </div>
-            <div *ngIf="editingService.manualImportanciaOverride" style="font-size: 12px; color: #6b7280; padding: 8px 12px; background: #f3f4f6; border-radius: 6px; margin-top: -8px; margin-bottom: 8px;">
-              ℹ️ El sistema no modificará automáticamente la importancia de este servicio, incluso si está interrumpido o impactado.
-            </div>
-
-            <div class="form-row checkbox-row">
-              <label>Activo</label>
-              <input type="checkbox" [(ngModel)]="editingService.activo" />
-            </div>
+          <div *ngIf="service.descripcion">
+            <p class="service-description">{{ service.descripcion }}</p>
           </div>
       </div>
-    </div>
-  </section>
-
-  <!-- HEALTH CHECKS -->
-  <section class="health-section" *ngIf="activeTab === 'actual'">
-    <div class="section-header">
-      <h2 class="section-title">🏥 Health Checks</h2>
-      <p class="section-subtitle">Monitoreo de servicios en tiempo real</p>
-    </div>
-    
-    <div class="filters-bar checks-filters">
-      <div class="filters-row">
-        <div class="filter-item">
-          <label>Desde</label>
-          <input type="date" [(ngModel)]="filtroChecksDesde" />
-        </div>
-        <div class="filter-item">
-          <label>Hasta</label>
-          <input type="date" [(ngModel)]="filtroChecksHasta" />
-        </div>
-        <div class="filter-item">
-          <label>Estado</label>
-          <select [(ngModel)]="filtroChecksEstado">
-            <option value="">Todos</option>
-            <option *ngFor="let e of estados" [value]="e">{{ e }}</option>
-          </select>
-        </div>
-        <div class="filter-item">
-          <label>Importancia</label>
-          <select [(ngModel)]="filtroChecksImportancia">
-            <option value="">Todas</option>
-            <option value="alta">Alta</option>
-            <option value="media">Media</option>
-            <option value="baja">Baja</option>
-          </select>
-        </div>
-        <div class="filter-item">
-          <label>Cadena</label>
-          <input list="cadenasList" [(ngModel)]="filtroChecksCadena" placeholder="Filtrar..." />
-        </div>
-        <div class="filter-item">
-          <label>Restaurante</label>
-          <input list="restaurantesList" [(ngModel)]="filtroChecksRestaurante" placeholder="Filtrar..." />
-        </div>
-        <div class="filter-item">
-          <label>Límite</label>
-          <select [(ngModel)]="filtroChecksLimite" (change)="loadData()">
-            <option [value]="50">50</option>
-            <option [value]="100">100</option>
-            <option [value]="500">500</option>
-            <option [value]="1000">1000</option>
-            <option [value]="5000">5000</option>
-            <option [value]="0">Todos</option>
-          </select>
-        </div>
-      </div>
-      <div class="filter-actions">
-        <button class="btn-secondary" (click)="filtroChecksDesde=''; filtroChecksHasta=''; filtroChecksEstado=''; filtroChecksImportancia=''; filtroChecksCadena=''; filtroChecksRestaurante=''">Limpiar</button>
-        <button class="btn-primary" (click)="currentPage = 1">Filtrar</button>
-      </div>
-    </div>
-
-    <div class="health-list">
-      <div
-        class="health-card"
-        *ngFor="let check of healthChecksPage"
-        [ngClass]="{
-          'ok': check.estado === 'Operando normalmente',
-          'impact': check.estado === 'Impactado',
-          'degraded': check.estado === 'Degradado',
-          'down': check.estado === 'Interrumpido'
-        }"
-      >
-        <div class="health-header">
-          <div class="health-title">
-            <span class="health-service">{{ getServiceNameById(check.serviceId) }}</span>
-            <span class="health-badge">{{ check.estado }}</span>
-            <span *ngIf="check.importancia" class="health-importance">⚑ {{ check.importancia }}</span>
-          </div>
-        </div>
-
-        <div class="health-meta">
-          <span *ngIf="check.cadena">{{ check.cadena }}</span>
-          <span *ngIf="check.restaurante">{{ check.restaurante }}</span>
-        </div>
-
-        <div class="health-details">
-          <span *ngIf="check.tiempoRespuestaMs" class="detail-item">⏱ {{ check.tiempoRespuestaMs }} ms</span>
-          <span *ngIf="check.codigoRespuesta" class="detail-item">🔢 {{ check.codigoRespuesta }}</span>
-          <span class="detail-item">🕒 {{ check.fechaRevision || check.fecha | date:'short' }}</span>
-        </div>
-
-        <div class="health-message" *ngIf="check.mensaje">
-          {{ check.mensaje }}
-        </div>
-      </div>
-    </div>
-
-    <!-- PAGINACIÓN -->
-    <div class="health-pagination" *ngIf="totalHealthPages > 1">
-      <button class="page-btn" (click)="prevPage()" [disabled]="currentPage === 1">‹</button>
-
-      <button
-        *ngFor="let p of getVisiblePages()"
-        class="page-btn"
-        [class.active]="currentPage === p"
-        [disabled]="p === '...'"
-        (click)="typeof p === 'number' && goToPage(p)"
-      >
-        {{ p }}
-      </button>
-
-      <button class="page-btn" (click)="nextPage()" [disabled]="currentPage === totalHealthPages">›</button>
     </div>
   </section>
 
