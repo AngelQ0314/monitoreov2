@@ -87,6 +87,15 @@
     </div>
 
     <div class="settings-footer">
+      <button class="btn-primary" (click)="onCreateService.emit()">
+        ➕ Crear servicio
+      </button>
+      <button class="btn-secondary" (click)="onEditService.emit()">
+        ✏️ Editar servicio
+      </button>
+      <button class="btn-danger" (click)="onDeleteService.emit()">
+        🗑️ Eliminar servicio
+      </button>
       <button class="btn-secondary" (click)="toggleDeletedServices()">
         👁️ Ver servicios eliminados
       </button>

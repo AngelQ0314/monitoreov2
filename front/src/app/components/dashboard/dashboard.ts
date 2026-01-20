@@ -42,6 +42,10 @@ export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
   // ========================================
   showSettings = false;
   showCreateService = false;
+  showEditServiceModal = false;
+  showDeleteServiceModal = false;
+  selectedServiceToEdit: string = '';
+  selectedServiceToDelete: string = '';
   activeTab: string = 'actual';
   
   // Intervalo para actualización automática
@@ -115,6 +119,17 @@ export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
   filtroChecksLimite: number = 100; // Límite de registros a cargar
 
   // ========================================
+  // FILTROS HISTORIAL
+  // ========================================
+  filtroHistorialDesde: string = '';
+  filtroHistorialHasta: string = '';
+  filtroHistorialEstado: string = '';
+  filtroHistorialImportancia: string = '';
+  filtroHistorialCadena: string = '';
+  filtroHistorialRestaurante: string = '';
+  filtroHistorialLimite: number = 100;
+
+  // ========================================
   // NUEVO SERVICIO
   // ========================================
   newService: any = {
@@ -168,6 +183,12 @@ export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
   healthChecksPerPage: number = 5;
 
   // ========================================
+  // PAGINACIÓN HISTORIAL
+  // ========================================
+  historyCurrentPage: number = 1;
+  historyPerPage: number = 20;
+
+  // ========================================
   // CALENDARIO
   // ========================================
   currentMonth: number = new Date().getMonth();
@@ -197,6 +218,39 @@ export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
   areaChart!: Chart;
   availabilityChart!: Chart;
 
+  // Getter para datos del historial en formato para la vista
+  get servicesHistoryData(): any[] {
+    return this.servicesHistory
+      .map(service => {
+        // Calcular prioridad basada en estados problemáticos
+        const interruptions = service.history.filter(d => d.status === 'interruption').length;
+        const problems = service.history.filter(d => d.status === 'problems').length;
+        const priority = interruptions * 1000 + problems * 10;
+
+        return {
+          nombre: service.name,
+          serviceId: service.serviceId,
+          priority,
+          days: service.history.map(day => ({
+            fecha: day.date,
+            estado: day.status === 'operational' ? 'operando' :
+                    day.status === 'problems' ? 'problemas' : 
+                    day.status === 'interruption' ? 'interrupcion' : 'sin-datos',
+            estadoLabel: day.statusLabel
+          }))
+        };
+      })
+      // Ordenar: primero los que tienen más interrupciones, luego más problemas
+      .sort((a, b) => b.priority - a.priority);
+  }
+
+  get historyStartDate(): string {
+    return this.getHistoryStartDate();
+  }
+
+  get historyEndDate(): string {
+    return this.getHistoryEndDate();
+  }
 
   // ========================================
   // CONSTRUCTOR
@@ -516,6 +570,139 @@ export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
     this.showCreateService = !this.showCreateService; 
   }
 
+  toggleEditServiceModal() {
+    this.showEditServiceModal = !this.showEditServiceModal;
+    if (!this.showEditServiceModal) {
+      this.selectedServiceToEdit = '';
+    }
+  }
+
+  toggleDeleteServiceModal() {
+    this.showDeleteServiceModal = !this.showDeleteServiceModal;
+    if (!this.showDeleteServiceModal) {
+      this.selectedServiceToDelete = '';
+    }
+  }
+
+  openEditFromSettings() {
+    this.showSettings = false;
+    this.showEditServiceModal = true;
+    this.selectedServiceToEdit = '';
+    this.editingService = null;
+    this.editingServiceId = null;
+  }
+
+  openDeleteFromSettings() {
+    this.showSettings = false;
+    this.showDeleteServiceModal = true;
+    this.selectedServiceToDelete = '';
+  }
+
+  deleteServiceFromModal() {
+    if (!this.selectedServiceToDelete) return;
+    
+    const service = this.services.find(s => s._id === this.selectedServiceToDelete);
+    const serviceName = service?.nombre || 'Servicio';
+    const serviceIdToDelete = this.selectedServiceToDelete;
+    
+    this.showConfirm(
+      '¿Eliminar servicio?',
+      `¿Estás seguro de que deseas eliminar "${serviceName}"? Esta acción se puede revertir desde "Ver servicios eliminados".`,
+      () => {
+        this.deleting = true;
+        this.cdr.detectChanges();
+        
+        this.apiService.deleteService(serviceIdToDelete).subscribe({
+          next: () => {
+            this.deleting = false;
+            this.showDeleteServiceModal = false;
+            this.selectedServiceToDelete = '';
+            
+            this.successMessage = `🗑️ ${serviceName} eliminado correctamente`;
+            this.showSuccessNotification = true;
+            
+            if (this.successNotificationTimeout) {
+              clearTimeout(this.successNotificationTimeout);
+            }
+            this.successNotificationTimeout = setTimeout(() => {
+              this.showSuccessNotification = false;
+              this.cdr.detectChanges();
+            }, 4000);
+            
+            // Recargar datos y forzar detección de cambios
+            this.loadData();
+            setTimeout(() => this.cdr.detectChanges(), 100);
+          },
+          error: (err) => {
+            this.deleting = false;
+            this.cdr.detectChanges();
+            this.showAlert('Error al eliminar: ' + (err.message || 'Error desconocido'), 'error');
+          }
+        });
+      }
+    );
+  }
+  onServiceSelectChange() {
+    if (!this.selectedServiceToEdit) {
+      this.editingService = null;
+      this.editingServiceId = null;
+      return;
+    }
+    const service = this.services.find(s => s._id === this.selectedServiceToEdit);
+    if (service) {
+      this.startEdit(service);
+    }
+  }
+
+  selectAndEditService() {
+    if (!this.selectedServiceToEdit) return;
+    const service = this.services.find(s => s._id === this.selectedServiceToEdit);
+    if (service) {
+      this.showEditServiceModal = false;
+      this.selectedServiceToEdit = '';
+      this.startEdit(service);
+    }
+  }
+
+  saveEditFromModal() {
+    if (!this.editingServiceId || this.savingEdit) return;
+    this.savingEdit = true;
+    const serviceName = this.editingService?.nombre || 'Servicio';
+    const body = { ...this.editingService };
+    
+    this.apiService.updateService(this.editingServiceId, body).subscribe({
+      next: () => {
+        this.savingEdit = false;
+        this.showEditServiceModal = false;
+        this.editingServiceId = null;
+        this.editingService = null;
+        this.selectedServiceToEdit = '';
+        
+        // Mostrar notificación de éxito
+        this.successMessage = `✅ ${serviceName} actualizado correctamente`;
+        this.showSuccessNotification = true;
+        
+        // Auto-ocultar la notificación después de 4 segundos
+        if (this.successNotificationTimeout) {
+          clearTimeout(this.successNotificationTimeout);
+        }
+        this.successNotificationTimeout = setTimeout(() => {
+          this.showSuccessNotification = false;
+          this.cdr.detectChanges();
+        }, 4000);
+        
+        // Recargar datos y forzar detección de cambios
+        this.loadData();
+        setTimeout(() => this.cdr.detectChanges(), 100);
+      },
+      error: (err) => {
+        this.savingEdit = false;
+        this.cdr.detectChanges();
+        this.showAlert('Error al guardar: ' + (err.message || 'Error desconocido'), 'error');
+      }
+    });
+  }
+
   toggleSettings() {
     this.showSettings = !this.showSettings;
     if (this.showSettings) {
@@ -657,6 +844,7 @@ export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
   closeConfirm() {
     this.showCustomConfirm = false;
     this.customConfirmCallback = null;
+    this.cdr.detectChanges();
   }
 
   checkServiceChanges() {
@@ -759,6 +947,7 @@ export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
   createService() {
     if (this.creating) return;
     this.creating = true;
+    this.cdr.detectChanges();
     
     this.apiService.createService(this.newService).subscribe({
       next: (res) => {
@@ -768,7 +957,6 @@ export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
         // Mostrar notificación de éxito
         this.successMessage = `✅ Servicio "${this.newService.nombre}" creado exitosamente`;
         this.showSuccessNotification = true;
-        this.cdr.detectChanges();
         
         // Auto-ocultar la notificación después de 4 segundos
         if (this.successNotificationTimeout) {
@@ -795,10 +983,15 @@ export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
           importancia: 'media', 
           activo: true 
         };
+        
+        // Recargar datos y forzar detección de cambios
+        this.loadData();
+        setTimeout(() => this.cdr.detectChanges(), 100);
       },
       error: (err) => {
         this.creating = false;
         console.error('Error creando servicio', err);
+        this.cdr.detectChanges();
         
         // Extraer mensaje de error específico del backend
         let errorMessage = '❌ Error al crear el servicio';
@@ -808,8 +1001,7 @@ export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
           errorMessage = `❌ ${err.message}`;
         }
         
-        alert(errorMessage);
-        this.cdr.detectChanges();
+        this.showAlert(errorMessage, 'error');
       }
     });
   }
@@ -1397,6 +1589,143 @@ export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
     const start = (this.currentPage - 1) * this.healthChecksPerPage;
     const end = start + this.healthChecksPerPage;
     return list.slice(start, end);
+  }
+
+  // ========================================
+  // HISTORIAL - HEALTH CHECKS ORDENADOS POR PRIORIDAD
+  // ========================================
+  
+  // Obtiene los health checks filtrados y ordenados por prioridad (Interrumpido > Impactado > Degradado > Operando)
+  get historyHealthChecksSorted(): any[] {
+    let list = this.healthChecks || [];
+    
+    // Filtrar solo servicios activos
+    const activeServiceIds = new Set((this.services || []).filter(s => s.activo !== false).map(s => s._id));
+    list = list.filter(h => activeServiceIds.has(h.serviceId));
+    
+    // Aplicar filtro de estado
+    if (this.filtroHistorialEstado) {
+      const f = this.filtroHistorialEstado.toLowerCase();
+      list = list.filter(h => (h.estado || '').toLowerCase().indexOf(f) !== -1);
+    }
+
+    // Aplicar filtro de importancia
+    if (this.filtroHistorialImportancia) {
+      const fImp = this.filtroHistorialImportancia.toLowerCase();
+      list = list.filter(h => ((h.importancia || '').toLowerCase() === fImp));
+    }
+
+    // Aplicar filtro de cadena
+    if (this.filtroHistorialCadena) {
+      const fCad = this.filtroHistorialCadena.toLowerCase();
+      list = list.filter(h => (h.cadena || '').toLowerCase().includes(fCad));
+    }
+
+    // Aplicar filtro de restaurante
+    if (this.filtroHistorialRestaurante) {
+      const fRest = this.filtroHistorialRestaurante.toLowerCase();
+      list = list.filter(h => (h.restaurante || '').toLowerCase().includes(fRest));
+    }
+
+    // Filtrar por rango de fechas
+    if (this.filtroHistorialDesde || this.filtroHistorialHasta) {
+      list = list.filter(h => {
+        const fechaRevision = h.fecha || h.fechaRevision || h.fechaCreacion || h.createdAt;
+        if (!fechaRevision) return false;
+        
+        const fechaCheck = new Date(fechaRevision);
+        
+        if (this.filtroHistorialDesde) {
+          const desde = new Date(this.filtroHistorialDesde + 'T00:00:00');
+          if (fechaCheck < desde) return false;
+        }
+        
+        if (this.filtroHistorialHasta) {
+          const hasta = new Date(this.filtroHistorialHasta + 'T23:59:59');
+          if (fechaCheck > hasta) return false;
+        }
+        
+        return true;
+      });
+    }
+
+    // Aplicar límite
+    if (this.filtroHistorialLimite > 0) {
+      list = list.slice(0, this.filtroHistorialLimite);
+    }
+    
+    // Ordenar por prioridad de estado
+    const priorityOrder: { [key: string]: number } = {
+      'Interrumpido': 1,
+      'Impactado': 2,
+      'Degradado': 3,
+      'Operando normalmente': 4
+    };
+    
+    return list.sort((a, b) => {
+      const priorityA = priorityOrder[a.estado] || 5;
+      const priorityB = priorityOrder[b.estado] || 5;
+      if (priorityA !== priorityB) {
+        return priorityA - priorityB;
+      }
+      // Si tienen la misma prioridad, ordenar por fecha más reciente
+      const dateA = new Date(a.fechaRevision || a.fecha || 0).getTime();
+      const dateB = new Date(b.fechaRevision || b.fecha || 0).getTime();
+      return dateB - dateA;
+    });
+  }
+
+  // Método para limpiar filtros del historial
+  limpiarFiltrosHistorial(): void {
+    this.filtroHistorialDesde = '';
+    this.filtroHistorialHasta = '';
+    this.filtroHistorialEstado = '';
+    this.filtroHistorialImportancia = '';
+    this.filtroHistorialCadena = '';
+    this.filtroHistorialRestaurante = '';
+    this.cdr.detectChanges();
+  }
+
+  // Método para aplicar filtros del historial
+  aplicarFiltrosHistorial(): void {
+    this.historyCurrentPage = 1;
+    this.cdr.detectChanges();
+  }
+
+  get historyHealthChecks(): any[] {
+    const list = this.historyHealthChecksSorted;
+    const start = (this.historyCurrentPage - 1) * this.historyPerPage;
+    const end = start + this.historyPerPage;
+    return list.slice(start, end);
+  }
+
+  get totalHistoryPages(): number {
+    return Math.ceil(this.historyHealthChecksSorted.length / this.historyPerPage) || 1;
+  }
+
+  // Agrupa los health checks por estado para mostrar con títulos
+  get historyByStatus(): { interrumpido: any[], impactado: any[], degradado: any[], operando: any[] } {
+    const list = this.historyHealthChecksSorted;
+    return {
+      interrumpido: list.filter(h => h.estado === 'Interrumpido'),
+      impactado: list.filter(h => h.estado === 'Impactado'),
+      degradado: list.filter(h => h.estado === 'Degradado'),
+      operando: list.filter(h => h.estado === 'Operando normalmente')
+    };
+  }
+
+  prevHistoryPage(): void {
+    if (this.historyCurrentPage > 1) {
+      this.historyCurrentPage--;
+      this.cdr.detectChanges();
+    }
+  }
+
+  nextHistoryPage(): void {
+    if (this.historyCurrentPage < this.totalHistoryPages) {
+      this.historyCurrentPage++;
+      this.cdr.detectChanges();
+    }
   }
 
   getFilteredHealthChecks(): any[] {

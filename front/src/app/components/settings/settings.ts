@@ -40,6 +40,9 @@ export class SettingsComponent implements OnInit {
   
   @Output() onSaved: EventEmitter<any> = new EventEmitter();
   @Output() onOpenDeleted: EventEmitter<any> = new EventEmitter();
+  @Output() onCreateService: EventEmitter<any> = new EventEmitter();
+  @Output() onEditService: EventEmitter<any> = new EventEmitter();
+  @Output() onDeleteService: EventEmitter<any> = new EventEmitter();
 
   constructor(private api: ApiService, private cdr: ChangeDetectorRef) {}
 
