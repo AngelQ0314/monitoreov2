@@ -100,10 +100,18 @@ export class ApiService {
   }
 
   // Health-checks
-  getHealthChecks(limit?: number): Observable<any> {
+  getHealthChecks(limit?: number, filters?: any): Observable<any> {
     const params: any = {};
     if (limit !== undefined && limit !== null) {
       params.limit = limit.toString();
+    }
+    if (filters) {
+      if (filters.desde) params.desde = filters.desde;
+      if (filters.hasta) params.hasta = filters.hasta;
+      if (filters.estado) params.estado = filters.estado;
+      if (filters.importancia) params.importancia = filters.importancia;
+      if (filters.cadena) params.cadena = filters.cadena;
+      if (filters.restaurante) params.restaurante = filters.restaurante;
     }
     return this.http.get(`${this.baseUrl}/health-checks`, { params });
   }

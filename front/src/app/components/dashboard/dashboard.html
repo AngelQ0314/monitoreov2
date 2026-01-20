@@ -36,12 +36,18 @@
   <!-- HEADER -->
   <header class="dashboard-header">
     <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQQxetRwKHF0eyrLM44loQHpENyIZhhN4-vRA&s" alt="KFC" class="brand-logo">
-    <div class="header-left">
+    <div class="header-center">
       <h1 class="dashboard-title">Estado de los servicios</h1>
-      <div class="title-divider"></div>
-      <p class="dashboard-subtitle">
-        
-      </p>
+      <p class="dashboard-subtitle">Monitoreo en tiempo real del estado de nuestros servicios</p>
+    </div>
+    <div class="header-right">
+      <button class="notification-toggle" (click)="toggleNotifications()" [class.has-alerts]="activeNotifications.length > 0">
+        <span class="notification-icon">🔔</span>
+        <span class="notification-badge" *ngIf="activeNotifications.length > 0">{{ activeNotifications.length }}</span>
+      </button>
+      <button class="notification-toggle settings-btn" (click)="toggleSettings()">
+        <span class="settings-icon">⚙️</span>
+      </button>
     </div>
   </header>
 
@@ -248,18 +254,6 @@
     </div>
   </section>
 
-  <!-- BOTONES DE ACCIÓN -->
-  <div class="action-buttons-row action-buttons-right">
-    <button class="btn-secondary" (click)="toggleNotifications()" style="position: relative;">
-      Notificaciones activas
-      <span *ngIf="activeNotifications.length > 0" class="notification-badge">{{ activeNotifications.length }}</span>
-    </button>
-    <button class="btn-secondary settings-btn" (click)="toggleSettings()">
-      <span class="settings-icon">⚙️</span>
-      <span class="btn-text">Ajustes</span>
-    </button>
-  </div>
-
   <!-- STATS -->
   <section class="stats-grid">
     <div class="stat-card stat-health">
@@ -361,17 +355,6 @@
             <label>Restaurante</label>
             <input list="restaurantesList" [(ngModel)]="filtroHistorialRestaurante" placeholder="Filtrar..." />
           </div>
-          <div class="filter-item">
-            <label>Límite</label>
-            <select [(ngModel)]="filtroHistorialLimite">
-              <option [value]="50">50</option>
-              <option [value]="100">100</option>
-              <option [value]="500">500</option>
-              <option [value]="1000">1000</option>
-              <option [value]="5000">5000</option>
-              <option [value]="0">Todos</option>
-            </select>
-          </div>
         </div>
         <div class="filter-actions">
           <button class="btn-secondary" (click)="limpiarFiltrosHistorial()">Limpiar</button>
@@ -385,106 +368,97 @@
         <span class="legend-item"><span class="legend-color legend-operando"></span> Operando</span>
       </div>
 
-      <!-- Sección Interrumpido -->
-      <div class="history-status-section" *ngIf="historyByStatus.interrumpido.length > 0">
-        <h3 class="history-status-title status-interrumpido">🔴 Interrumpido</h3>
-        <div class="health-list history-health-list">
-          <div class="health-card down" *ngFor="let check of historyByStatus.interrumpido">
-            <div class="health-header">
-              <div class="health-title">
-                <span class="health-service">{{ getServiceNameById(check.serviceId) }}</span>
-                <span class="health-badge">{{ check.estado }}</span>
-                <span *ngIf="check.importancia" class="health-importance">⚑ {{ check.importancia }}</span>
+      <!-- Selector de Vista -->
+      <div class="history-view-selector">
+        <button 
+          class="view-btn" 
+          [class.active]="historialViewMode === 'checks'"
+          (click)="switchHistorialView('checks')">
+          Ver Health Checks
+        </button>
+        <button 
+          class="view-btn" 
+          [class.active]="historialViewMode === 'calendar'"
+          (click)="switchHistorialView('calendar')">
+          Ver por Días
+        </button>
+      </div>
+
+      <!-- VISTA DE HEALTH CHECKS (CARRUSEL) -->
+      <div *ngIf="historialViewMode === 'checks'">
+        <!-- SERVICIOS CON SUS HEALTH CHECKS EN CARRUSEL -->
+      <div *ngFor="let serviceGroup of historyByService; let i = index" class="history-status-section">
+        <div class="carousel-header">
+          <h3 class="carousel-title history-status-title">
+            <span class="status-icon">{{ serviceGroup.statusIcon }}</span>
+            {{ serviceGroup.serviceName }}
+            <span class="service-count">({{ serviceGroup.checks.length }} checks)</span>
+            <span class="health-badge-inline" [ngClass]="{
+              'badge-down': serviceGroup.latestStatus === 'Interrumpido',
+              'badge-impact': serviceGroup.latestStatus === 'Impactado',
+              'badge-degraded': serviceGroup.latestStatus === 'Degradado',
+              'badge-ok': serviceGroup.latestStatus === 'Operando normalmente'
+            }">{{ serviceGroup.latestStatus }}</span>
+          </h3>
+        </div>
+        <div class="carousel-wrapper">
+          <div class="carousel-container carousel-container-{{ i }}">
+            <div class="health-card history-health-card" 
+                 *ngFor="let check of serviceGroup.checks; trackBy: trackByHealthCheckId"
+                 [ngClass]="{
+                   'ok': check.estado === 'Operando normalmente',
+                   'impact': check.estado === 'Impactado',
+                   'degraded': check.estado === 'Degradado',
+                   'down': check.estado === 'Interrumpido'
+                 }">
+              <div class="health-header">
+                <div class="health-title">
+                  <span class="health-badge">{{ check.estado }}</span>
+                  <span *ngIf="check.importancia" class="health-importance">⚑ {{ check.importancia }}</span>
+                </div>
               </div>
+              <div class="health-meta" *ngIf="check.cadena || check.restaurante">
+                <span *ngIf="check.cadena">{{ check.cadena }}</span>
+                <span *ngIf="check.restaurante">{{ check.restaurante }}</span>
+              </div>
+              <div class="health-details">
+                <span *ngIf="check.tiempoRespuestaMs" class="detail-item">⏱ {{ check.tiempoRespuestaMs }} ms</span>
+                <span *ngIf="check.codigoRespuesta" class="detail-item">🔢 {{ check.codigoRespuesta }}</span>
+                <span class="detail-item">🕒 {{ check.fechaRevision || check.fecha | date:'short' }}</span>
+              </div>
+              <div class="health-message" *ngIf="check.mensaje">{{ check.mensaje }}</div>
             </div>
-            <div class="health-meta" *ngIf="check.cadena || check.restaurante">
-              <span *ngIf="check.cadena">{{ check.cadena }}</span>
-              <span *ngIf="check.restaurante">{{ check.restaurante }}</span>
-            </div>
-            <div class="health-details">
-              <span *ngIf="check.tiempoRespuestaMs" class="detail-item">⏱ {{ check.tiempoRespuestaMs }} ms</span>
-              <span *ngIf="check.codigoRespuesta" class="detail-item">🔢 {{ check.codigoRespuesta }}</span>
-              <span class="detail-item">🕒 {{ check.fechaRevision || check.fecha | date:'short' }}</span>
-            </div>
-            <div class="health-message" *ngIf="check.mensaje">{{ check.mensaje }}</div>
           </div>
         </div>
       </div>
-
-      <!-- Sección Impactado -->
-      <div class="history-status-section" *ngIf="historyByStatus.impactado.length > 0">
-        <h3 class="history-status-title status-impactado">🟠 Impactado</h3>
-        <div class="health-list history-health-list">
-          <div class="health-card impact" *ngFor="let check of historyByStatus.impactado">
-            <div class="health-header">
-              <div class="health-title">
-                <span class="health-service">{{ getServiceNameById(check.serviceId) }}</span>
-                <span class="health-badge">{{ check.estado }}</span>
-                <span *ngIf="check.importancia" class="health-importance">⚑ {{ check.importancia }}</span>
-              </div>
-            </div>
-            <div class="health-meta" *ngIf="check.cadena || check.restaurante">
-              <span *ngIf="check.cadena">{{ check.cadena }}</span>
-              <span *ngIf="check.restaurante">{{ check.restaurante }}</span>
-            </div>
-            <div class="health-details">
-              <span *ngIf="check.tiempoRespuestaMs" class="detail-item">⏱ {{ check.tiempoRespuestaMs }} ms</span>
-              <span *ngIf="check.codigoRespuesta" class="detail-item">🔢 {{ check.codigoRespuesta }}</span>
-              <span class="detail-item">🕒 {{ check.fechaRevision || check.fecha | date:'short' }}</span>
-            </div>
-            <div class="health-message" *ngIf="check.mensaje">{{ check.mensaje }}</div>
-          </div>
-        </div>
       </div>
 
-      <!-- Sección Degradado -->
-      <div class="history-status-section" *ngIf="historyByStatus.degradado.length > 0">
-        <h3 class="history-status-title status-degradado">🟡 Degradado</h3>
-        <div class="health-list history-health-list">
-          <div class="health-card degraded" *ngFor="let check of historyByStatus.degradado">
-            <div class="health-header">
-              <div class="health-title">
-                <span class="health-service">{{ getServiceNameById(check.serviceId) }}</span>
-                <span class="health-badge">{{ check.estado }}</span>
-                <span *ngIf="check.importancia" class="health-importance">⚑ {{ check.importancia }}</span>
-              </div>
-            </div>
-            <div class="health-meta" *ngIf="check.cadena || check.restaurante">
-              <span *ngIf="check.cadena">{{ check.cadena }}</span>
-              <span *ngIf="check.restaurante">{{ check.restaurante }}</span>
-            </div>
-            <div class="health-details">
-              <span *ngIf="check.tiempoRespuestaMs" class="detail-item">⏱ {{ check.tiempoRespuestaMs }} ms</span>
-              <span *ngIf="check.codigoRespuesta" class="detail-item">🔢 {{ check.codigoRespuesta }}</span>
-              <span class="detail-item">🕒 {{ check.fechaRevision || check.fecha | date:'short' }}</span>
-            </div>
-            <div class="health-message" *ngIf="check.mensaje">{{ check.mensaje }}</div>
-          </div>
+      <!-- VISTA DE CALENDARIO POR DÍAS -->
+      <div *ngIf="historialViewMode === 'calendar'" class="calendar-view">
+        <div class="calendar-legend">
+          <span class="legend-item"><span class="legend-dot legend-ok"></span> Operacional</span>
+          <span class="legend-item"><span class="legend-dot legend-degraded"></span> Problemas</span>
+          <span class="legend-item"><span class="legend-dot legend-down"></span> Interrupción</span>
         </div>
-      </div>
 
-      <!-- Sección Operando -->
-      <div class="history-status-section" *ngIf="historyByStatus.operando.length > 0">
-        <h3 class="history-status-title status-operando">🟢 Operando</h3>
-        <div class="health-list history-health-list">
-          <div class="health-card ok" *ngFor="let check of historyByStatus.operando">
-            <div class="health-header">
-              <div class="health-title">
-                <span class="health-service">{{ getServiceNameById(check.serviceId) }}</span>
-                <span class="health-badge">{{ check.estado }}</span>
-                <span *ngIf="check.importancia" class="health-importance">⚑ {{ check.importancia }}</span>
-              </div>
+        <div class="service-timeline" *ngFor="let service of servicesForCalendar">
+          <h3 class="timeline-service-name">{{ service.nombre }}</h3>
+          <div class="timeline-days">
+            <div 
+              *ngFor="let day of service.days" 
+              class="day-cell"
+              [ngClass]="{
+                'day-ok': day.status === 'Operando normalmente',
+                'day-degraded': day.status === 'Impactado' || day.status === 'Degradado',
+                'day-down': day.status === 'Interrumpido',
+                'day-empty': !day.status
+              }"
+              [title]="(day.date | date:'dd/MM/yyyy') + ': ' + (day.status || 'Sin datos')">
             </div>
-            <div class="health-meta" *ngIf="check.cadena || check.restaurante">
-              <span *ngIf="check.cadena">{{ check.cadena }}</span>
-              <span *ngIf="check.restaurante">{{ check.restaurante }}</span>
-            </div>
-            <div class="health-details">
-              <span *ngIf="check.tiempoRespuestaMs" class="detail-item">⏱ {{ check.tiempoRespuestaMs }} ms</span>
-              <span *ngIf="check.codigoRespuesta" class="detail-item">🔢 {{ check.codigoRespuesta }}</span>
-              <span class="detail-item">🕒 {{ check.fechaRevision || check.fecha | date:'short' }}</span>
-            </div>
-            <div class="health-message" *ngIf="check.mensaje">{{ check.mensaje }}</div>
+          </div>
+          <div class="timeline-dates">
+            <span>{{ getCalendarEndDate() | date:'dd/MM' }}</span>
+            <span>{{ getCalendarStartDate() | date:'dd/MM' }}</span>
           </div>
         </div>
       </div>
@@ -785,7 +759,7 @@
   </section>
 
   <!-- LISTA DE SERVICIOS -->
-  <section class="services-section" *ngIf="activeTab !== 'mantenimiento' && activeTab !== 'calendario' && activeTab !== 'tendencias'">
+  <section class="services-section" *ngIf="activeTab !== 'mantenimiento' && activeTab !== 'calendario' && activeTab !== 'tendencias' && activeTab !== 'historial' && activeTab !== 'incidentes'">
     <h2 class="section-title">Lista de Servicios</h2>
 
     <div style="margin-bottom:12px">
@@ -824,6 +798,50 @@
         <button class="btn-primary" (click)="currentPage = 1">Filtrar</button>
       </div>
     </div>
+
+    <div class="services-grid">
+      <div
+        class="service-card"
+        *ngFor="let service of filteredServices"
+        [ngClass]="{
+          'ok': service.estado === 'Operando normalmente',
+          'impact': service.estado === 'Impactado',
+          'degraded': service.estado === 'Degradado',
+          'down': service.estado === 'Interrumpido'
+        }"
+      >
+          <!-- Status Flag Corner -->
+          <div class="status-flag" [ngClass]="{
+            'flag-ok': service.estado === 'Operando normalmente',
+            'flag-impact': service.estado === 'Impactado',
+            'flag-degraded': service.estado === 'Degradado',
+            'flag-down': service.estado === 'Interrumpido'
+          }"></div>
+          
+          <div class="service-header">
+            <div class="service-title">
+              <span class="service-name">{{ service.nombre }}</span>
+
+              <span *ngIf="service.maintenanceMode" class="maintenance-badge">En mantenimiento</span>
+              <span class="service-status">{{ service.estado }}</span>
+              <span *ngIf="getLastHealthStatus(service._id)" class="health-check-badge">Últ. check: {{ getLastHealthStatus(service._id) }}</span>
+            </div>
+          </div>
+
+          <div class="service-meta">
+            <span *ngIf="service.clasificacion?.cadena">📦 {{ service.clasificacion.cadena }}</span>
+            <span *ngIf="service.clasificacion?.restaurante">🏷 {{ service.clasificacion.restaurante }}</span>
+            <span *ngIf="service.importancia" class="importance">⚑ {{ service.importancia }}</span>
+            <span *ngIf="service.manualImportanciaOverride" class="importance-locked" title="Escalamiento automático bloqueado">🔒 Manual</span>
+            <span *ngIf="service.version">🧬 v{{ service.version }}</span>
+          </div>
+
+          <div *ngIf="service.descripcion">
+            <p class="service-description">{{ service.descripcion }}</p>
+          </div>
+      </div>
+    </div>
+  </section>
 
   <!-- CREATE SERVICE MODAL -->
   <section *ngIf="showCreateService" class="create-modal-overlay" (click)="toggleCreateService()">
@@ -916,51 +934,7 @@
     </div>
   </section>
 
-    <div class="services-grid">
-      <div
-        class="service-card"
-        *ngFor="let service of filteredServices"
-        [ngClass]="{
-          'ok': service.estado === 'Operando normalmente',
-          'impact': service.estado === 'Impactado',
-          'degraded': service.estado === 'Degradado',
-          'down': service.estado === 'Interrumpido'
-        }"
-      >
-          <!-- Status Flag Corner -->
-          <div class="status-flag" [ngClass]="{
-            'flag-ok': service.estado === 'Operando normalmente',
-            'flag-impact': service.estado === 'Impactado',
-            'flag-degraded': service.estado === 'Degradado',
-            'flag-down': service.estado === 'Interrumpido'
-          }"></div>
-          
-          <div class="service-header">
-            <div class="service-title">
-              <span class="service-name">{{ service.nombre }}</span>
-
-              <span *ngIf="service.maintenanceMode" class="maintenance-badge">En mantenimiento</span>
-              <span class="service-status">{{ service.estado }}</span>
-              <span *ngIf="getLastHealthStatus(service._id)" class="health-check-badge">Últ. check: {{ getLastHealthStatus(service._id) }}</span>
-            </div>
-          </div>
-
-          <div class="service-meta">
-            <span *ngIf="service.clasificacion?.cadena">📦 {{ service.clasificacion.cadena }}</span>
-            <span *ngIf="service.clasificacion?.restaurante">🏷 {{ service.clasificacion.restaurante }}</span>
-            <span *ngIf="service.importancia" class="importance">⚑ {{ service.importancia }}</span>
-            <span *ngIf="service.manualImportanciaOverride" class="importance-locked" title="Escalamiento automático bloqueado">🔒 Manual</span>
-            <span *ngIf="service.version">🧬 v{{ service.version }}</span>
-          </div>
-
-          <div *ngIf="service.descripcion">
-            <p class="service-description">{{ service.descripcion }}</p>
-          </div>
-      </div>
-    </div>
-  </section>
-
   <!-- ESPACIADO FINAL -->
   <div class="page-bottom-spacing"></div>
 
-  </div>
+</div>

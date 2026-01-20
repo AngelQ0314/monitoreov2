@@ -136,6 +136,7 @@ export class HealthChecksService implements OnModuleInit {
     if (query.estado) filter.estado = query.estado;
     if (query.cadena) filter.cadena = query.cadena;
     if (query.restaurante) filter.restaurante = query.restaurante;
+    if (query.importancia) filter.importancia = query.importancia;
 
     if (query.desde && query.hasta) {
       // Asegurar que las fechas sean strings ISO válidos para comparación
@@ -146,6 +147,12 @@ export class HealthChecksService implements OnModuleInit {
         $gte: desde,
         $lte: hasta,
       };
+    } else if (query.desde) {
+      const desde = query.desde.includes('T') ? query.desde : new Date(query.desde).toISOString();
+      filter.fechaRevision = { $gte: desde };
+    } else if (query.hasta) {
+      const hasta = query.hasta.includes('T') ? query.hasta : new Date(query.hasta + 'T23:59:59.999Z').toISOString();
+      filter.fechaRevision = { $lte: hasta };
     }
 
     const queryBuilder = this.model

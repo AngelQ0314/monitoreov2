@@ -1,4 +1,4 @@
-import { Component, OnInit, ChangeDetectorRef, AfterViewInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef, AfterViewInit, OnDestroy, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { SettingsComponent } from '../settings/settings';
@@ -35,6 +35,7 @@ interface TrendDay {
   imports: [CommonModule, FormsModule, SettingsComponent, MaintenanceComponent],
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
   // ========================================
@@ -75,6 +76,14 @@ export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
   customConfirmMessage = '';
   customConfirmTitle = '';
   customConfirmCallback: (() => void) | null = null;
+  
+  // ========================================
+  // CARRUSEL DE SERVICIOS
+  // ========================================
+  carouselScrollPosition = 0;
+  carouselItemsPerPage = 4;
+  private userInteractingWithCarousel = false;
+  private interactionTimeout: any = null;
   
   // ========================================
   // DATOS PRINCIPALES
@@ -127,7 +136,22 @@ export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
   filtroHistorialImportancia: string = '';
   filtroHistorialCadena: string = '';
   filtroHistorialRestaurante: string = '';
-  filtroHistorialLimite: number = 100;
+
+  // ========================================
+  // VISTA DEL HISTORIAL
+  // ========================================
+  historialViewMode: 'checks' | 'calendar' = 'checks';
+  
+  // Cache para optimizar rendimiento
+  private _historyByServiceCache: any[] | null = null;
+  private _lastHealthChecksLength: number = 0;
+  private _lastFiltersHash: string = '';
+  
+  // Filtros activos aplicados (para refresh automático)
+  private _appliedFilters: any = null;
+  
+  // Guardar posiciones de scroll de carruseles
+  private _carouselScrollPositions: Map<number, number> = new Map();
 
   // ========================================
   // NUEVO SERVICIO
@@ -279,12 +303,28 @@ export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
 
   ngAfterViewInit() {
     this.subscribeToSettingsEvents();
+    this.setupCarouselScrollListeners();
   }
 
   ngOnDestroy() {
     // Limpiar el intervalo al destruir el componente
     this.stopAutoRefresh();
     this.stopMaintenanceAlarmChecker();
+  }
+  
+  // ========================================
+  // CARRUSEL - CONFIGURACIÓN DE LISTENERS
+  // ========================================
+  setupCarouselScrollListeners() {
+    // Esperar a que el DOM se renderice
+    setTimeout(() => {
+      const containers = document.querySelectorAll('[class*="carousel-container-"]');
+      containers.forEach((container) => {
+        container.addEventListener('scroll', () => {
+          this.cdr.detectChanges();
+        });
+      });
+    }, 500);
   }
 
   // ========================================
@@ -418,14 +458,43 @@ export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
   }
 
   refreshHealthChecks() {
-    // Solo actualizar Health Checks sin recargar todo
-    this.apiService.getHealthChecks(this.filtroChecksLimite).subscribe({
+    // Actualizar los datos sin re-renderizar todo
+    this.apiService.getHealthChecks(this.filtroChecksLimite, this._appliedFilters).subscribe({
       next: (healthChecks) => {
         this.healthChecks = healthChecks || [];
+        this.invalidateHistoryCache();
         this.cdr.detectChanges();
       },
       error: (err) => {
         console.error('Error actualizando Health Checks:', err);
+      }
+    });
+  }
+  
+  // TrackBy para evitar re-renderizado completo del carrusel
+  trackByHealthCheckId(index: number, check: any): any {
+    return check._id || check.id || index;
+  }
+  
+  // Guardar posiciones de scroll de todos los carruseles
+  private saveCarouselScrollPositions(): void {
+    const containers = document.querySelectorAll('[class*="carousel-container-"]');
+    containers.forEach((container: any) => {
+      const classList = Array.from(container.classList) as string[];
+      const carouselClass = classList.find((c: string) => c.startsWith('carousel-container-'));
+      if (carouselClass && typeof carouselClass === 'string') {
+        const index = parseInt(carouselClass.replace('carousel-container-', ''));
+        this._carouselScrollPositions.set(index, container.scrollLeft);
+      }
+    });
+  }
+  
+  // Restaurar posiciones de scroll guardadas
+  private restoreCarouselScrollPositions(): void {
+    this._carouselScrollPositions.forEach((scrollLeft, index) => {
+      const container = document.querySelector(`.carousel-container-${index}`) as HTMLElement;
+      if (container) {
+        container.scrollLeft = scrollLeft;
       }
     });
   }
@@ -1576,6 +1645,57 @@ export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
     return list;
   }
 
+  // ========================================
+  // CARRUSEL (usado en historial)
+  // ========================================
+  
+  scrollCarousel(groupIndex: number, direction: 'left' | 'right') {
+    const container = document.querySelector(`.carousel-container-${groupIndex}`) as HTMLElement;
+    if (!container) return;
+    
+    // Marcar que el usuario está interactuando
+    this.userInteractingWithCarousel = true;
+    
+    // Limpiar timeout anterior
+    if (this.interactionTimeout) {
+      clearTimeout(this.interactionTimeout);
+    }
+    
+    const cardWidth = 300; // Ancho de cada tarjeta + gap para historial
+    const scrollAmount = cardWidth * this.carouselItemsPerPage;
+    
+    if (direction === 'left') {
+      container.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
+    } else {
+      container.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+    }
+    
+    // Forzar detección de cambios después del scroll
+    setTimeout(() => {
+      this.cdr.detectChanges();
+    }, 300);
+    
+    // Resetear el flag después de 3 segundos de inactividad
+    this.interactionTimeout = setTimeout(() => {
+      this.userInteractingWithCarousel = false;
+    }, 3000);
+  }
+  
+  canScrollLeft(groupIndex: number): boolean {
+    const container = document.querySelector(`.carousel-container-${groupIndex}`) as HTMLElement;
+    if (!container) return false;
+    // Siempre permitir scroll si hay contenido suficiente
+    return container.scrollLeft > 5;
+  }
+  
+  canScrollRight(groupIndex: number): boolean {
+    const container = document.querySelector(`.carousel-container-${groupIndex}`) as HTMLElement;
+    if (!container) return false;
+    // Permitir scroll derecho si hay más contenido
+    const maxScroll = container.scrollWidth - container.clientWidth;
+    return container.scrollLeft < (maxScroll - 5);
+  }
+
   get filteredHealthChecks(): any[] {
     return this.getFilteredHealthChecks();
   }
@@ -1649,11 +1769,6 @@ export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
       });
     }
 
-    // Aplicar límite
-    if (this.filtroHistorialLimite > 0) {
-      list = list.slice(0, this.filtroHistorialLimite);
-    }
-    
     // Ordenar por prioridad de estado
     const priorityOrder: { [key: string]: number } = {
       'Interrumpido': 1,
@@ -1662,7 +1777,7 @@ export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
       'Operando normalmente': 4
     };
     
-    return list.sort((a, b) => {
+    list = list.sort((a, b) => {
       const priorityA = priorityOrder[a.estado] || 5;
       const priorityB = priorityOrder[b.estado] || 5;
       if (priorityA !== priorityB) {
@@ -1673,6 +1788,8 @@ export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
       const dateB = new Date(b.fechaRevision || b.fecha || 0).getTime();
       return dateB - dateA;
     });
+    
+    return list;
   }
 
   // Método para limpiar filtros del historial
@@ -1683,13 +1800,77 @@ export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
     this.filtroHistorialImportancia = '';
     this.filtroHistorialCadena = '';
     this.filtroHistorialRestaurante = '';
+    this._appliedFilters = null; // Limpiar filtros guardados
+    this.invalidateHistoryCache();
     this.cdr.detectChanges();
+  }
+  
+  // Invalida el cache cuando cambian los datos o filtros
+  private invalidateHistoryCache(): void {
+    this._historyByServiceCache = null;
+    this._lastHealthChecksLength = 0;
+    this._lastFiltersHash = '';
   }
 
   // Método para aplicar filtros del historial
   aplicarFiltrosHistorial(): void {
     this.historyCurrentPage = 1;
-    this.cdr.detectChanges();
+    this.invalidateHistoryCache();
+    
+    // Calcular límite necesario basado en filtros de fecha
+    let limiteNecesario = 100; // Límite por defecto
+    
+    if (this.filtroHistorialDesde || this.filtroHistorialHasta) {
+      // Si hay filtro de fechas, calcular cuántos registros necesitamos
+      const ahora = new Date();
+      let fechaDesde = this.filtroHistorialDesde ? new Date(this.filtroHistorialDesde) : new Date(ahora.getTime() - 30 * 24 * 60 * 60 * 1000);
+      let fechaHasta = this.filtroHistorialHasta ? new Date(this.filtroHistorialHasta) : ahora;
+      
+      // Calcular días entre fechas
+      const diasRango = Math.ceil((fechaHasta.getTime() - fechaDesde.getTime()) / (24 * 60 * 60 * 1000));
+      
+      // Estimar registros necesarios: ~100 checks por día (ajustable según tu caso)
+      // Si el rango es muy grande, limitar a 10000 para no sobrecargar
+      limiteNecesario = Math.min(Math.max(diasRango * 100, 500), 10000);
+    }
+    
+    // Preparar filtros para enviar al backend
+    const filters: any = {};
+    if (this.filtroHistorialDesde) filters.desde = this.filtroHistorialDesde;
+    if (this.filtroHistorialHasta) filters.hasta = this.filtroHistorialHasta;
+    if (this.filtroHistorialEstado && this.filtroHistorialEstado !== 'Todos') filters.estado = this.filtroHistorialEstado;
+    if (this.filtroHistorialImportancia && this.filtroHistorialImportancia !== 'Todas') filters.importancia = this.filtroHistorialImportancia;
+    if (this.filtroHistorialCadena) filters.cadena = this.filtroHistorialCadena;
+    if (this.filtroHistorialRestaurante) filters.restaurante = this.filtroHistorialRestaurante;
+    
+    // Guardar filtros para uso en refresh automático
+    this._appliedFilters = Object.keys(filters).length > 0 ? filters : null;
+    
+    // Si necesitamos más datos de los que tenemos cargados, recargar
+    if (limiteNecesario > this.filtroChecksLimite || Object.keys(filters).length > 0) {
+      this.filtroChecksLimite = Math.max(limiteNecesario, this.filtroChecksLimite);
+      this.apiService.getHealthChecks(this.filtroChecksLimite, filters).subscribe({
+        next: (healthChecks) => {
+          this.healthChecks = healthChecks || [];
+          this.invalidateHistoryCache();
+          this.cdr.detectChanges();
+          // Forzar actualización de botones de carrusel después de renderizar
+          setTimeout(() => {
+            this.cdr.detectChanges();
+          }, 100);
+        },
+        error: (err) => {
+          console.error('Error cargando Health Checks:', err);
+        }
+      });
+    } else {
+      this.invalidateHistoryCache();
+      this.cdr.detectChanges();
+      // Forzar actualización de botones de carrusel
+      setTimeout(() => {
+        this.cdr.detectChanges();
+      }, 100);
+    }
   }
 
   get historyHealthChecks(): any[] {
@@ -1712,6 +1893,206 @@ export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
       degradado: list.filter(h => h.estado === 'Degradado'),
       operando: list.filter(h => h.estado === 'Operando normalmente')
     };
+  }
+
+  // Agrupa los health checks por servicio para el carrusel del historial
+  get historyByService(): Array<{ 
+    serviceId: string, 
+    serviceName: string, 
+    checks: any[],
+    latestStatus: string,
+    statusIcon: string
+  }> {
+    // Calcular hash de filtros para detectar cambios
+    const filtersHash = `${this.filtroHistorialEstado}_${this.filtroHistorialImportancia}_${this.filtroHistorialCadena}_${this.filtroHistorialRestaurante}_${this.filtroHistorialDesde}_${this.filtroHistorialHasta}`;
+    
+    // Verificar si podemos usar el cache
+    if (this._historyByServiceCache && 
+        this._lastHealthChecksLength === (this.healthChecks?.length || 0) &&
+        this._lastFiltersHash === filtersHash) {
+      return this._historyByServiceCache;
+    }
+    
+    // Obtener todos los health checks - el backend ya los filtró
+    let list = this.healthChecks || [];
+    
+    // Solo filtrar servicios activos (esto no lo hace el backend)
+    const activeServiceIds = new Set((this.services || []).filter(s => s.activo !== false).map(s => s._id));
+    list = list.filter(h => activeServiceIds.has(h.serviceId));
+    
+    // NO aplicar filtros aquí - el backend ya los aplicó cuando se cargaron los datos
+    // Los filtros de estado, importancia, cadena, restaurante y fechas ya fueron aplicados en el servidor
+    
+    const groupedMap = new Map<string, any[]>();
+    
+    // Agrupar por serviceId
+    list.forEach(check => {
+      const serviceId = check.serviceId;
+      if (!groupedMap.has(serviceId)) {
+        groupedMap.set(serviceId, []);
+      }
+      groupedMap.get(serviceId)!.push(check);
+    });
+    
+    // Convertir a array y agregar información del servicio
+    const result = Array.from(groupedMap.entries()).map(([serviceId, checks]) => {
+      const serviceName = this.getServiceNameById(serviceId);
+      
+      // Ordenar checks por fecha (más recientes primero)
+      checks.sort((a, b) => {
+        const dateA = new Date(a.fechaRevision || a.fecha || 0).getTime();
+        const dateB = new Date(b.fechaRevision || b.fecha || 0).getTime();
+        return dateB - dateA;
+      });
+      
+      // Limitar a máximo 50 checks por servicio para mejorar rendimiento
+      const limitedChecks = checks.slice(0, 50);
+      
+      const latestCheck = checks[0];
+      const latestStatus = latestCheck?.estado || 'Desconocido';
+      
+      // Determinar icono según el estado más reciente
+      let statusIcon = '⚪';
+      if (latestStatus === 'Interrumpido') statusIcon = '🔴';
+      else if (latestStatus === 'Impactado') statusIcon = '🟠';
+      else if (latestStatus === 'Degradado') statusIcon = '🟡';
+      else if (latestStatus === 'Operando normalmente') statusIcon = '🟢';
+      
+      return {
+        serviceId,
+        serviceName,
+        checks: limitedChecks,
+        latestStatus,
+        statusIcon
+      };
+    });
+    
+    // Ordenar por prioridad de estado (peores primero)
+    const priorityOrder: { [key: string]: number } = {
+      'Interrumpido': 1,
+      'Impactado': 2,
+      'Degradado': 3,
+      'Operando normalmente': 4
+    };
+    
+    const sorted = result.sort((a, b) => {
+      const priorityA = priorityOrder[a.latestStatus] || 5;
+      const priorityB = priorityOrder[b.latestStatus] || 5;
+      return priorityA - priorityB;
+    });
+    
+    // Guardar en cache
+    this._historyByServiceCache = sorted;
+    this._lastHealthChecksLength = this.healthChecks?.length || 0;
+    this._lastFiltersHash = filtersHash;
+    
+    return sorted;
+  }
+
+  // ========================================
+  // VISTA DE CALENDARIO POR DÍAS
+  // ========================================
+  get servicesForCalendar(): any[] {
+    const days = 30; // Últimos 30 días
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(endDate.getDate() - (days - 1));
+
+    return (this.services || [])
+      .filter(s => s.activo !== false)
+      .map(service => {
+        const dayStatuses = [];
+        
+        // Recorrer de hoy hacia atrás (izquierda = hoy, derecha = hace 30 días)
+        for (let i = 0; i < days; i++) {
+          const currentDate = new Date();
+          currentDate.setDate(currentDate.getDate() - i);
+          // Usar fecha local en lugar de UTC
+          const year = currentDate.getFullYear();
+          const month = String(currentDate.getMonth() + 1).padStart(2, '0');
+          const day = String(currentDate.getDate()).padStart(2, '0');
+          const dateStr = `${year}-${month}-${day}`;
+          
+          // Buscar health checks para este servicio y fecha
+          const checksForDay = (this.healthChecks || []).filter(check => {
+            if (check.serviceId !== service._id) return false;
+            const checkDate = new Date(check.fechaRevision || check.fecha);
+            const checkYear = checkDate.getFullYear();
+            const checkMonth = String(checkDate.getMonth() + 1).padStart(2, '0');
+            const checkDay = String(checkDate.getDate()).padStart(2, '0');
+            const checkDateStr = `${checkYear}-${checkMonth}-${checkDay}`;
+            return checkDateStr === dateStr;
+          });
+          
+          // Determinar el peor estado del día
+          let dayStatus = null;
+          if (checksForDay.length > 0) {
+            if (checksForDay.some(c => c.estado === 'Interrumpido')) {
+              dayStatus = 'Interrumpido';
+            } else if (checksForDay.some(c => c.estado === 'Impactado')) {
+              dayStatus = 'Impactado';
+            } else if (checksForDay.some(c => c.estado === 'Degradado')) {
+              dayStatus = 'Degradado';
+            } else {
+              dayStatus = 'Operando normalmente';
+            }
+          }
+          
+          dayStatuses.push({
+            date: dateStr,
+            status: dayStatus
+          });
+        }
+        
+        return {
+          nombre: service.nombre,
+          days: dayStatuses
+        };
+      });
+  }
+
+  getCalendarStartDate(): Date {
+    const date = new Date();
+    date.setDate(date.getDate() - 29);
+    return date;
+  }
+
+  getCalendarEndDate(): Date {
+    return new Date();
+  }
+
+  switchHistorialView(mode: 'checks' | 'calendar'): void {
+    this.historialViewMode = mode;
+    
+    // Si cambia a vista de calendario, cargar más datos
+    if (mode === 'calendar' && this.filtroChecksLimite < 5000) {
+      this.filtroChecksLimite = 5000;
+      this.apiService.getHealthChecks(this.filtroChecksLimite).subscribe({
+        next: (healthChecks) => {
+          this.healthChecks = healthChecks || [];
+          this.invalidateHistoryCache();
+          this.cdr.detectChanges();
+        },
+        error: (err) => {
+          console.error('Error cargando Health Checks para calendario:', err);
+        }
+      });
+    } else if (mode === 'checks' && this.filtroChecksLimite > 100) {
+      // Si vuelve a vista normal, restaurar límite original
+      this.filtroChecksLimite = 100;
+      this.apiService.getHealthChecks(this.filtroChecksLimite).subscribe({
+        next: (healthChecks) => {
+          this.healthChecks = healthChecks || [];
+          this.invalidateHistoryCache();
+          this.cdr.detectChanges();
+        },
+        error: (err) => {
+          console.error('Error cargando Health Checks:', err);
+        }
+      });
+    } else {
+      this.cdr.detectChanges();
+    }
   }
 
   prevHistoryPage(): void {
