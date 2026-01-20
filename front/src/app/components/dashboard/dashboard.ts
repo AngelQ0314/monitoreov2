@@ -859,11 +859,38 @@ export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
     this.services.forEach((service: any) => {
       const previousState = this.previousServiceStates.get(service._id);
       const currentState = service.estado;
+      const serviceName = service.nombre;
       
+      // Si es la primera vez que vemos este servicio (carga inicial)
+      if (!previousState) {
+        // Notificar solo si está en estado problemático
+        if (currentState === 'Interrumpido') {
+          this.addNotification(
+            '🚨 Servicio Interrumpido',
+            `${serviceName} está interrumpido`,
+            'critical',
+            '❌'
+          );
+        }
+        else if (currentState === 'Impactado') {
+          this.addNotification(
+            '⚠️ Servicio Impactado',
+            `${serviceName} está experimentando problemas`,
+            'warning',
+            '⚠️'
+          );
+        }
+        else if (currentState === 'Degradado') {
+          this.addNotification(
+            '⚡ Servicio Degradado',
+            `${serviceName} tiene rendimiento reducido`,
+            'warning',
+            '⚡'
+          );
+        }
+      }
       // Si hay un cambio de estado
-      if (previousState && previousState !== currentState) {
-        const serviceName = service.nombre;
-        
+      else if (previousState !== currentState) {
         // Servicio interrumpido
         if (currentState === 'Interrumpido') {
           this.addNotification(
@@ -939,6 +966,12 @@ export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
           this.showSuccessNotification = false;
           this.cdr.detectChanges();
         }, 4000);
+        
+        // Agregar el nuevo servicio al array sin recargar todo
+        // Esto evita que se recarguen los health checks de todos los servicios
+        this.services.unshift(res);
+        this.calculateResumen();
+        this.cdr.detectChanges();
         
         this.newService = { 
           nombre: '', 

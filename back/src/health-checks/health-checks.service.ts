@@ -99,7 +99,8 @@ export class HealthChecksService implements OnModuleInit {
           await this.unregisterServiceScheduler(s._id);
           // Delay de 100ms para asegurar que los timeouts recursivos vean que el scheduler fue eliminado
           await new Promise(resolve => setTimeout(resolve, 100));
-          await this.registerServiceScheduler(s);
+          // Pasar skipImmediateCheck=true para que use el intervalo completo en lugar de ejecutar inmediatamente
+          await this.registerServiceScheduler(s, true);
         } catch (err) {
           this.logger.warn(`Error re-registrando scheduler para ${s._id}: ${err?.message || err}`);
         }
@@ -186,7 +187,8 @@ export class HealthChecksService implements OnModuleInit {
   }
 
   // Registrar un scheduler independiente por servicio (intervalo + jitter)
-  async registerServiceScheduler(service: any) {
+  // skipImmediateCheck: si es true, usa el intervalo completo antes del primer check (útil para refresh de settings)
+  async registerServiceScheduler(service: any, skipImmediateCheck = false) {
     if (!service || !service._id) return;
     const id = service._id.toString();
 
@@ -252,9 +254,10 @@ export class HealthChecksService implements OnModuleInit {
     }
 
     const maxJitter = Math.min(jitter, interval);
-    const jitterMs = Math.floor(Math.random() * (maxJitter + 1));
+    // Si skipImmediateCheck es true, usar intervalo completo + jitter; si no, solo jitter pequeño
+    const initialDelay = skipImmediateCheck ? (interval + Math.floor(Math.random() * (maxJitter + 1))) : Math.floor(Math.random() * (maxJitter + 1));
 
-    // Programar primer check con jitter; luego programamos recursivamente con jitter variable
+    // Programar primer check; luego programamos recursivamente con jitter variable
     const initialTimeout = setTimeout(async () => {
       try {
         await this.checkServiceHealth(service);
@@ -289,10 +292,10 @@ export class HealthChecksService implements OnModuleInit {
       };
 
       await scheduleNext();
-    }, jitterMs);
+    }, initialDelay);
 
     this.schedulers.set(id, { timeout: initialTimeout });
-    this.logger.log(`✅ Registered scheduler for ${id} | importancia=${imp} | interval=${interval/1000}s | jitter=${jitterMs/1000}s | source=${usingSettingsOverride ? 'Settings' : 'Env'}`);
+    this.logger.log(`✅ Registered scheduler for ${id} | importancia=${imp} | interval=${interval/1000}s | initialDelay=${initialDelay/1000}s | skipImmediate=${skipImmediateCheck} | source=${usingSettingsOverride ? 'Settings' : 'Env'}`);
   }
 
   async unregisterServiceScheduler(serviceId: string) {

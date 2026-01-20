@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  # Backend API - Desarrollo
+  backend:
+    build:
+      context: ./back
+      dockerfile: Dockerfile.dev
+    container_name: monitoreo-backend-dev
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+    env_file:
+      - .env.development
+    volumes:
+      # Hot reload - montar código fuente
+      - ./back/src:/app/src
+    restart: unless-stopped
+    networks:
+      - monitoreo-network-dev
+
+  # Frontend Angular - Desarrollo
+  frontend:
+    build:
+      context: ./front
+      dockerfile: Dockerfile.dev
+    container_name: monitoreo-frontend-dev
+    ports:
+      - "4200:4200"
+    environment:
+      - NODE_ENV=development
+    volumes:
+      # Hot reload - montar código fuente
+      - ./front/src:/app/src
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - monitoreo-network-dev
+
+networks:
+  monitoreo-network-dev:
+    driver: bridge

@@ -6,7 +6,10 @@ import { Observable } from 'rxjs';
   providedIn: 'root'
 })
 export class ApiService {
-  private baseUrl = 'http://localhost:3000'; // URL del backend
+  // Detectar automáticamente la URL del backend según el entorno
+  private baseUrl = window.location.hostname === 'localhost' 
+    ? 'http://localhost:3000' 
+    : `http://${window.location.hostname}:3000`;
 
   constructor(private http: HttpClient) {}
 
