@@ -850,7 +850,7 @@
     <div class="create-modal" (click)="$event.stopPropagation()">
       <div class="modal-header">
         <h2>➕ Crear nuevo servicio</h2>
-        <button class="modal-close" (click)="toggleCreateService()">✕</button>
+        <button type="button" class="modal-close" (click)="toggleCreateService()">✕</button>
       </div>
       <div class="modal-content">
         <p class="modal-subtitle">Rellena los datos básicos para crear un nuevo servicio de monitoreo</p>
@@ -867,13 +867,13 @@
           </div>
 
           <div class="form-row">
-            <label>Cadena</label>
-            <input [(ngModel)]="newService.clasificacion.cadena" placeholder="Ej: GRUPO KFC" />
+            <label>Cadena *</label>
+            <input [(ngModel)]="newService.clasificacion.cadena" placeholder="Ej: GRUPO KFC" required />
           </div>
 
           <div class="form-row">
-            <label>Restaurante</label>
-            <input [(ngModel)]="newService.clasificacion.restaurante" placeholder="Ej: KFC MALL DEL SOL" />
+            <label>Restaurante *</label>
+            <input [(ngModel)]="newService.clasificacion.restaurante" placeholder="Ej: KFC MALL DEL SOL" required />
           </div>
 
           <div class="form-row">
@@ -927,10 +927,10 @@
         </div>
 
         <div class="form-actions">
-          <button class="btn-primary" (click)="createService()" [disabled]="creating">
+          <button type="button" class="btn-primary" (click)="createService()" [disabled]="creating">
             {{ creating ? '⏳ Creando...' : '✓ Crear servicio' }}
           </button>
-          <button class="btn-secondary" (click)="toggleCreateService()" [disabled]="creating">Cancelar</button>
+          <button type="button" class="btn-secondary" (click)="toggleCreateService()" [disabled]="creating">Cancelar</button>
         </div>
       </div>
     </div>

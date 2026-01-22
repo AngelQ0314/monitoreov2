@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, timeout, catchError, throwError } from 'rxjs';
 
 @Injectable({
   providedIn: 'root'
@@ -27,7 +27,18 @@ export class ApiService {
   }
 
   createService(service: any): Observable<any> {
-    return this.http.post(`${this.baseUrl}/services`, service);
+    return this.http.post(`${this.baseUrl}/services`, service).pipe(
+      timeout(10000), // 10 segundos de timeout
+      catchError(err => {
+        if (err.name === 'TimeoutError') {
+          return throwError(() => ({ 
+            status: 0, 
+            message: 'La solicitud tardó demasiado' 
+          }));
+        }
+        return throwError(() => err);
+      })
+    );
   }
 
   updateService(id: string, body: any): Observable<any> {

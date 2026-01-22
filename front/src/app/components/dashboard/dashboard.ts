@@ -1035,17 +1035,71 @@ export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
 
   createService() {
     if (this.creating) return;
+    
+    // Validar campos requeridos (deben coincidir con validaciones del backend)
+    if (!this.newService.nombre?.trim()) {
+      this.showAlert('❌ El nombre del servicio es requerido', 'error');
+      return;
+    }
+    if (!this.newService.endpoint?.url?.trim()) {
+      this.showAlert('❌ La URL del endpoint es requerida', 'error');
+      return;
+    }
+    if (!this.newService.clasificacion?.cadena?.trim()) {
+      this.showAlert('❌ La Cadena es un campo requerido', 'error');
+      return;
+    }
+    if (!this.newService.clasificacion?.restaurante?.trim()) {
+      this.showAlert('❌ El Restaurante es un campo requerido', 'error');
+      return;
+    }
+    
+    // Validar URL
+    try {
+      const url = new URL(this.newService.endpoint.url);
+      if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+        this.showAlert('❌ La URL debe usar protocolo HTTP o HTTPS', 'error');
+        return;
+      }
+    } catch {
+      this.showAlert('❌ La URL proporcionada no es válida', 'error');
+      return;
+    }
+    
+    const serviceName = this.newService.nombre;
+    const serviceData = { ...this.newService }; // Copia para enviar
+    
+    // Cerrar modal y mostrar notificación INMEDIATAMENTE (optimistic UI)
     this.creating = true;
+    this.showCreateService = false;
+    this.successMessage = `✅ Creando servicio "${serviceName}"...`;
+    this.showSuccessNotification = true;
+    
+    // Limpiar formulario inmediatamente
+    this.newService = { 
+      nombre: '', 
+      descripcion: '', 
+      tipo: 'backend', 
+      ambiente: 'produccion', 
+      clasificacion: { cadena: '', restaurante: '' }, 
+      endpoint: { url: '', metodo: 'GET' }, 
+      importancia: 'media', 
+      activo: true 
+    };
     this.cdr.detectChanges();
     
-    this.apiService.createService(this.newService).subscribe({
+    this.apiService.createService(serviceData).subscribe({
       next: (res) => {
         this.creating = false;
-        this.showCreateService = false;
         
-        // Mostrar notificación de éxito
-        this.successMessage = `✅ Servicio "${this.newService.nombre}" creado exitosamente`;
-        this.showSuccessNotification = true;
+        // Actualizar notificación a éxito
+        this.successMessage = `✅ Servicio "${serviceName}" creado exitosamente`;
+        
+        // Agregar el nuevo servicio al array
+        this.services.unshift(res);
+        this.calculateResumen();
+        this.invalidateHistoryCache();
+        this.cdr.detectChanges();
         
         // Auto-ocultar la notificación después de 4 segundos
         if (this.successNotificationTimeout) {
@@ -1055,32 +1109,11 @@ export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
           this.showSuccessNotification = false;
           this.cdr.detectChanges();
         }, 4000);
-        
-        // Agregar el nuevo servicio al array sin recargar todo
-        // Esto evita que se recarguen los health checks de todos los servicios
-        this.services.unshift(res);
-        this.calculateResumen();
-        this.cdr.detectChanges();
-        
-        this.newService = { 
-          nombre: '', 
-          descripcion: '', 
-          tipo: 'backend', 
-          ambiente: 'produccion', 
-          clasificacion: { cadena: '', restaurante: '' }, 
-          endpoint: { url: '', metodo: 'GET' }, 
-          importancia: 'media', 
-          activo: true 
-        };
-        
-        // Recargar datos y forzar detección de cambios
-        this.loadData();
-        setTimeout(() => this.cdr.detectChanges(), 100);
       },
       error: (err) => {
         this.creating = false;
+        this.showSuccessNotification = false;
         console.error('Error creando servicio', err);
-        this.cdr.detectChanges();
         
         // Extraer mensaje de error específico del backend
         let errorMessage = '❌ Error al crear el servicio';
@@ -1088,8 +1121,13 @@ export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
           errorMessage = `❌ ${err.error.message}`;
         } else if (err.message) {
           errorMessage = `❌ ${err.message}`;
+        } else if (err.status === 0) {
+          errorMessage = '❌ No se puede conectar al servidor';
+        } else if (err.status === 500) {
+          errorMessage = '❌ Error interno del servidor';
         }
         
+        this.cdr.detectChanges();
         this.showAlert(errorMessage, 'error');
       }
     });
