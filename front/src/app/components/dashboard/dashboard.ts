@@ -147,6 +147,11 @@ export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
   private _lastHealthChecksLength: number = 0;
   private _lastFiltersHash: string = '';
   
+  // Cache para calendario
+  private _servicesForCalendarCache: any[] | null = null;
+  private _lastCalendarServicesLength: number = 0;
+  private _lastCalendarHealthChecksLength: number = 0;
+  
   // Filtros activos aplicados (para refresh automático)
   private _appliedFilters: any = null;
   
@@ -474,6 +479,21 @@ export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
   // TrackBy para evitar re-renderizado completo del carrusel
   trackByHealthCheckId(index: number, check: any): any {
     return check._id || check.id || index;
+  }
+  
+  // TrackBy para grupos de servicios en el historial
+  trackByServiceGroup(index: number, group: any): string {
+    return group.serviceId;
+  }
+  
+  // TrackBy para servicios en el calendario
+  trackByServiceName(index: number, service: any): string {
+    return service.nombre;
+  }
+  
+  // TrackBy para días en el calendario
+  trackByDayDate(index: number, day: any): string {
+    return day.date;
   }
   
   // Guardar posiciones de scroll de todos los carruseles
@@ -1810,6 +1830,8 @@ export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
     this._historyByServiceCache = null;
     this._lastHealthChecksLength = 0;
     this._lastFiltersHash = '';
+    // También invalidar cache del calendario ya que depende de los mismos datos
+    this.invalidateCalendarCache();
   }
 
   // Método para aplicar filtros del historial
@@ -1993,36 +2015,49 @@ export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
   // VISTA DE CALENDARIO POR DÍAS
   // ========================================
   get servicesForCalendar(): any[] {
+    // Verificar si podemos usar el cache
+    const currentServicesLength = (this.services || []).filter(s => s.activo !== false).length;
+    const currentHealthChecksLength = this.healthChecks?.length || 0;
+    
+    if (this._servicesForCalendarCache && 
+        this._lastCalendarServicesLength === currentServicesLength &&
+        this._lastCalendarHealthChecksLength === currentHealthChecksLength) {
+      return this._servicesForCalendarCache;
+    }
+    
     const days = 30; // Últimos 30 días
-    const endDate = new Date();
-    const startDate = new Date();
-    startDate.setDate(endDate.getDate() - (days - 1));
+    
+    // Pre-procesar health checks por serviceId y fecha para evitar búsquedas O(n) repetidas
+    const checksMap = new Map<string, Map<string, any[]>>();
+    (this.healthChecks || []).forEach(check => {
+      const serviceId = check.serviceId;
+      const checkDate = new Date(check.fechaRevision || check.fecha);
+      const dateStr = `${checkDate.getFullYear()}-${String(checkDate.getMonth() + 1).padStart(2, '0')}-${String(checkDate.getDate()).padStart(2, '0')}`;
+      
+      if (!checksMap.has(serviceId)) {
+        checksMap.set(serviceId, new Map());
+      }
+      const serviceDates = checksMap.get(serviceId)!;
+      if (!serviceDates.has(dateStr)) {
+        serviceDates.set(dateStr, []);
+      }
+      serviceDates.get(dateStr)!.push(check);
+    });
 
-    return (this.services || [])
+    const result = (this.services || [])
       .filter(s => s.activo !== false)
       .map(service => {
         const dayStatuses = [];
+        const serviceChecks = checksMap.get(service._id);
         
         // Recorrer de hoy hacia atrás (izquierda = hoy, derecha = hace 30 días)
         for (let i = 0; i < days; i++) {
           const currentDate = new Date();
           currentDate.setDate(currentDate.getDate() - i);
-          // Usar fecha local en lugar de UTC
-          const year = currentDate.getFullYear();
-          const month = String(currentDate.getMonth() + 1).padStart(2, '0');
-          const day = String(currentDate.getDate()).padStart(2, '0');
-          const dateStr = `${year}-${month}-${day}`;
+          const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(currentDate.getDate()).padStart(2, '0')}`;
           
-          // Buscar health checks para este servicio y fecha
-          const checksForDay = (this.healthChecks || []).filter(check => {
-            if (check.serviceId !== service._id) return false;
-            const checkDate = new Date(check.fechaRevision || check.fecha);
-            const checkYear = checkDate.getFullYear();
-            const checkMonth = String(checkDate.getMonth() + 1).padStart(2, '0');
-            const checkDay = String(checkDate.getDate()).padStart(2, '0');
-            const checkDateStr = `${checkYear}-${checkMonth}-${checkDay}`;
-            return checkDateStr === dateStr;
-          });
+          // Buscar checks pre-indexados
+          const checksForDay = serviceChecks?.get(dateStr) || [];
           
           // Determinar el peor estado del día
           let dayStatus = null;
@@ -2049,6 +2084,20 @@ export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
           days: dayStatuses
         };
       });
+    
+    // Guardar en cache
+    this._servicesForCalendarCache = result;
+    this._lastCalendarServicesLength = currentServicesLength;
+    this._lastCalendarHealthChecksLength = currentHealthChecksLength;
+    
+    return result;
+  }
+  
+  // Invalida el cache del calendario cuando cambian los datos
+  private invalidateCalendarCache(): void {
+    this._servicesForCalendarCache = null;
+    this._lastCalendarServicesLength = 0;
+    this._lastCalendarHealthChecksLength = 0;
   }
 
   getCalendarStartDate(): Date {

@@ -357,8 +357,8 @@
           </div>
         </div>
         <div class="filter-actions">
-          <button class="btn-secondary" (click)="limpiarFiltrosHistorial()">Limpiar</button>
-          <button class="btn-primary" (click)="aplicarFiltrosHistorial()">Filtrar</button>
+          <button type="button" class="btn-secondary" (click)="limpiarFiltrosHistorial()">Limpiar</button>
+          <button type="button" class="btn-primary" (click)="aplicarFiltrosHistorial()">Filtrar</button>
         </div>
       </div>
       
@@ -371,15 +371,17 @@
       <!-- Selector de Vista -->
       <div class="history-view-selector">
         <button 
+          type="button"
           class="view-btn" 
           [class.active]="historialViewMode === 'checks'"
-          (click)="switchHistorialView('checks')">
+          (click)="switchHistorialView('checks'); $event.preventDefault()">
           Ver Health Checks
         </button>
         <button 
+          type="button"
           class="view-btn" 
           [class.active]="historialViewMode === 'calendar'"
-          (click)="switchHistorialView('calendar')">
+          (click)="switchHistorialView('calendar'); $event.preventDefault()">
           Ver por Días
         </button>
       </div>
@@ -387,7 +389,7 @@
       <!-- VISTA DE HEALTH CHECKS (CARRUSEL) -->
       <div *ngIf="historialViewMode === 'checks'">
         <!-- SERVICIOS CON SUS HEALTH CHECKS EN CARRUSEL -->
-      <div *ngFor="let serviceGroup of historyByService; let i = index" class="history-status-section">
+      <div *ngFor="let serviceGroup of historyByService; let i = index; trackBy: trackByServiceGroup" class="history-status-section">
         <div class="carousel-header">
           <h3 class="carousel-title history-status-title">
             <span class="status-icon">{{ serviceGroup.statusIcon }}</span>
@@ -441,11 +443,11 @@
           <span class="legend-item"><span class="legend-dot legend-down"></span> Interrupción</span>
         </div>
 
-        <div class="service-timeline" *ngFor="let service of servicesForCalendar">
+        <div class="service-timeline" *ngFor="let service of servicesForCalendar; trackBy: trackByServiceName">
           <h3 class="timeline-service-name">{{ service.nombre }}</h3>
           <div class="timeline-days">
             <div 
-              *ngFor="let day of service.days" 
+              *ngFor="let day of service.days; trackBy: trackByDayDate" 
               class="day-cell"
               [ngClass]="{
                 'day-ok': day.status === 'Operando normalmente',
