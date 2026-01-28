@@ -610,6 +610,14 @@
             {{ incident.severidad }}
           </span>
         </div>
+        <div class="incident-actions">
+          <label style="font-size: 12px; color: #666; margin-right: 8px;">Cambiar estado:</label>
+          <select class="status-selector" [value]="incident.estado" (change)="changeIncidentStatus(incident._id, $event)">
+            <option value="Abierto">🔴 Abierto</option>
+            <option value="En progreso">🟡 En progreso</option>
+            <option value="Resuelto">🟢 Resuelto</option>
+          </select>
+        </div>
       </div>
       <div *ngIf="!incidents || incidents.length === 0" class="no-incidents">
         No hay incidentes registrados 🎉

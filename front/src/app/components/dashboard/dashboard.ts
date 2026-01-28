@@ -1354,6 +1354,61 @@ export class Dashboard implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
+  changeIncidentStatus(incidentId: string, event: any) {
+    const newStatus = event.target.value;
+    const incident = this.incidents.find(i => i._id === incidentId);
+    
+    if (!incident) {
+      this.showAlert('Incidente no encontrado', 'error');
+      return;
+    }
+
+    const oldStatus = incident.estado;
+    
+    // Actualizar optimistamente
+    incident.estado = newStatus;
+    if (newStatus === 'Resuelto' && !incident.fechaResolucion) {
+      incident.fechaResolucion = new Date().toISOString();
+    }
+    this.cdr.detectChanges();
+
+    // Llamar al backend
+    const payload: any = { estado: newStatus };
+    if (newStatus === 'Resuelto') {
+      payload.fechaResolucion = new Date().toISOString();
+    }
+
+    this.apiService.updateIncidentStatus(incidentId, payload).subscribe({
+      next: (res) => {
+        this.successMessage = `✅ Estado del incidente actualizado a "${newStatus}"`;
+        this.showSuccessNotification = true;
+        
+        if (this.successNotificationTimeout) {
+          clearTimeout(this.successNotificationTimeout);
+        }
+        
+        this.successNotificationTimeout = setTimeout(() => {
+          this.showSuccessNotification = false;
+          this.cdr.detectChanges();
+        }, 3000);
+        
+        this.loadData(); // Recargar datos para sincronizar
+      },
+      error: (err) => {
+        // Revertir cambio optimista
+        incident.estado = oldStatus;
+        this.cdr.detectChanges();
+        
+        console.error('Error actualizando estado del incidente', err);
+        let errorMessage = 'Error al actualizar el estado del incidente';
+        if (err.error && err.error.message) {
+          errorMessage = err.error.message;
+        }
+        this.showAlert(errorMessage, 'error');
+      }
+    });
+  }
+
   toggleDeleteIncident() {
     this.showDeleteIncident = !this.showDeleteIncident;
     if (!this.showDeleteIncident) {
