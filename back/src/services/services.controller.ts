@@ -59,7 +59,6 @@ export class ServicesController {
 
   @Get('deleted')
   async getDeletedServices() {
-    // Return services explicitly marked as inactive (soft-deleted)
     return this.servicesService.findAll({ activo: 'false' });
   }
 

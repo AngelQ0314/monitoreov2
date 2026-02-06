@@ -26,7 +26,7 @@ services:
       dockerfile: Dockerfile
     container_name: monitoreo-frontend
     ports:
-      - "8080:80"
+      - "8090:80"
     depends_on:
       - backend
     restart: unless-stopped
